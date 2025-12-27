@@ -1,5 +1,7 @@
 import { Client, Events, GatewayIntentBits, Message } from "discord.js";
 import { config, validateConfig } from "./config";
+import { invokeAgent } from "./agent";
+import { appendLog } from "./memory/logs";
 
 validateConfig();
 
@@ -20,10 +22,44 @@ client.on(Events.MessageCreate, async (message: Message) => {
   if (message.author.bot) return;
   if (message.channelId !== config.discord.channelId) return;
 
-  console.log(`[bud] Message from ${message.author.username}: ${message.content}`);
+  const timestamp = new Date().toISOString();
+  console.log(`[bud] ${timestamp} Message from ${message.author.username}: ${message.content}`);
 
-  // Placeholder: echo for now
-  await message.reply(`Echo: ${message.content}`);
+  try {
+    // Show typing indicator
+    if ("sendTyping" in message.channel) {
+      await message.channel.sendTyping();
+    }
+
+    const result = await invokeAgent(message.content, {
+      userId: message.author.id,
+      username: message.author.username,
+      channelId: message.channelId,
+    });
+
+    if (result.response) {
+      await message.reply(result.response);
+    }
+
+    // Log the interaction
+    await appendLog("journal.jsonl", {
+      timestamp,
+      type: "interaction",
+      content: `User: ${message.content}\nBud: ${result.response}`,
+      userId: message.author.id,
+      toolsUsed: result.toolsUsed,
+    });
+  } catch (error) {
+    console.error("[bud] Error processing message:", error);
+
+    await appendLog("events.jsonl", {
+      timestamp,
+      type: "error",
+      content: error instanceof Error ? error.message : String(error),
+    });
+
+    await message.reply("Sorry, I encountered an error processing your message.");
+  }
 });
 
 client.login(config.discord.token);
