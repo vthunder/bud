@@ -35,3 +35,24 @@ export async function setMemoryBlock(
 ): Promise<void> {
   await client.agents.blocks.update(label, { agent_id: agentId, value });
 }
+
+export interface BudContext {
+  persona: string;
+  currentFocus: string;
+  ownerContext: string;
+  timezone: string;
+}
+
+export async function loadContext(
+  client: Letta,
+  agentId: string
+): Promise<BudContext> {
+  const [persona, currentFocus, ownerContext, timezone] = await Promise.all([
+    getMemoryBlock(client, agentId, "persona"),
+    getMemoryBlock(client, agentId, "current_focus"),
+    getMemoryBlock(client, agentId, "owner_context"),
+    getMemoryBlock(client, agentId, "timezone"),
+  ]);
+
+  return { persona, currentFocus, ownerContext, timezone };
+}

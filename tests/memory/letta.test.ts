@@ -16,9 +16,8 @@ mock.module("@letta-ai/letta-client", () => ({
 }));
 
 // Import after mocking
-const { createLettaClient, getMemoryBlock, setMemoryBlock } = await import(
-  "../../src/memory/letta"
-);
+const { createLettaClient, getMemoryBlock, setMemoryBlock, loadContext } =
+  await import("../../src/memory/letta");
 
 describe("Letta client", () => {
   beforeEach(() => {
@@ -77,5 +76,45 @@ describe("Letta client", () => {
       agent_id: "agent-123",
       value: "new content",
     });
+  });
+});
+
+describe("loadContext", () => {
+  beforeEach(() => {
+    mockRetrieve.mockClear();
+  });
+
+  test("loads all memory blocks into context object", async () => {
+    mockRetrieve
+      .mockResolvedValueOnce({ value: "I am Bud" })
+      .mockResolvedValueOnce({ value: "Working on Phase 2" })
+      .mockResolvedValueOnce({ value: "Tim, developer" })
+      .mockResolvedValueOnce({ value: "Europe/Berlin" });
+
+    const client = createLettaClient({
+      baseURL: "http://localhost:8283",
+      apiKey: "test-key",
+    });
+
+    const context = await loadContext(client, "agent-123");
+
+    expect(context.persona).toBe("I am Bud");
+    expect(context.currentFocus).toBe("Working on Phase 2");
+    expect(context.ownerContext).toBe("Tim, developer");
+    expect(context.timezone).toBe("Europe/Berlin");
+  });
+
+  test("returns empty strings for missing blocks", async () => {
+    mockRetrieve.mockRejectedValue(new Error("Not found"));
+
+    const client = createLettaClient({
+      baseURL: "http://localhost:8283",
+      apiKey: "test-key",
+    });
+
+    const context = await loadContext(client, "agent-123");
+
+    expect(context.persona).toBe("");
+    expect(context.currentFocus).toBe("");
   });
 });
