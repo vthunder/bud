@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "bun run --watch src/bot.ts",
     "start": "bun run src/bot.ts",
+    "perch": "bun run src/perch.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
