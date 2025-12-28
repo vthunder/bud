@@ -31,32 +31,21 @@ export async function invokeAgent(
   context: AgentContext
 ): Promise<AgentResult> {
   try {
-    // Prepend system context to the prompt
     const prompt = `${SYSTEM_CONTEXT}\n\n---\n\n[Message from ${context.username}]: ${userMessage}`;
 
-    console.log("[agent] Starting query...");
     const toolsUsed: string[] = [];
     let responseText = "";
-
-    // Enable SDK debug mode
-    process.env.DEBUG_CLAUDE_AGENT_SDK = "1";
 
     const result = query({
       prompt,
       options: {
         permissionMode: "bypassPermissions",
-        // Start with no tools for basic chat
         allowedTools: [],
-        // Explicitly set path to claude executable
         pathToClaudeCodeExecutable: "/usr/bin/claude",
-        // Capture stderr for debugging
-        stderr: (msg: string) => console.error("[claude stderr]", msg),
       },
     });
 
-    console.log("[agent] Iterating messages...");
     for await (const message of result) {
-      console.log("[agent] Message type:", message.type);
       if (message.type === "assistant" && "message" in message) {
         for (const block of message.message.content) {
           if (block.type === "text") {
@@ -66,21 +55,18 @@ export async function invokeAgent(
           }
         }
       } else if (message.type === "result" && "result" in message) {
-        // Prefer the final result if available
         if (message.result) {
           responseText = message.result;
         }
       }
     }
 
-    console.log("[agent] Done. Response length:", responseText.length);
     return {
       response: responseText || "I apologize, but I couldn't generate a response.",
       toolsUsed,
     };
   } catch (error) {
-    console.error("[agent] SDK error:", error);
-    console.error("[agent] Error stack:", error instanceof Error ? error.stack : "no stack");
+    console.error("[agent] Error:", error);
     return {
       response: "I encountered an error processing your request. Please try again.",
       toolsUsed: [],
