@@ -66,4 +66,7 @@ async function main() {
   console.log(`LETTA_AGENT_ID=${agent.id}`);
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error("Failed to create Letta agent:", error);
+  process.exit(1);
+});
