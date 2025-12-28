@@ -50,7 +50,7 @@ export async function invokeAgent(
         // Explicitly set path to claude executable
         pathToClaudeCodeExecutable: "/usr/bin/claude",
         // Capture stderr for debugging
-        stderr: true,
+        stderr: (msg: string) => console.error("[claude stderr]", msg),
       },
     });
 
