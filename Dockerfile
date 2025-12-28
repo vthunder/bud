@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install -y curl && \
 # Install Claude Code CLI globally
 RUN npm install -g @anthropic-ai/claude-code
 
+# Create home directory for Claude CLI config
+ENV HOME=/app
+RUN mkdir -p /app/.claude
+
 # Install dependencies
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
