@@ -4,3 +4,9 @@ dist/
 *.log
 .DS_Store
 .beads/
+
+# Local env
+.env
+
+# State files (managed by Dokku storage mount)
+state/logs/*.jsonl
