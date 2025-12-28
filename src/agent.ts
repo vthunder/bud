@@ -34,6 +34,7 @@ export async function invokeAgent(
     // Prepend system context to the prompt
     const prompt = `${SYSTEM_CONTEXT}\n\n---\n\n[Message from ${context.username}]: ${userMessage}`;
 
+    console.log("[agent] Starting query...");
     const toolsUsed: string[] = [];
     let responseText = "";
 
@@ -48,7 +49,9 @@ export async function invokeAgent(
       },
     });
 
+    console.log("[agent] Iterating messages...");
     for await (const message of result) {
+      console.log("[agent] Message type:", message.type);
       if (message.type === "assistant" && "message" in message) {
         for (const block of message.message.content) {
           if (block.type === "text") {
@@ -65,12 +68,14 @@ export async function invokeAgent(
       }
     }
 
+    console.log("[agent] Done. Response length:", responseText.length);
     return {
       response: responseText || "I apologize, but I couldn't generate a response.",
       toolsUsed,
     };
   } catch (error) {
     console.error("[agent] SDK error:", error);
+    console.error("[agent] Error stack:", error instanceof Error ? error.stack : "no stack");
     return {
       response: "I encountered an error processing your request. Please try again.",
       toolsUsed: [],
