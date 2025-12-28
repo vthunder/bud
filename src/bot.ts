@@ -52,22 +52,30 @@ client.on(Events.MessageCreate, async (message: Message) => {
       await message.reply(result.response);
     }
 
-    // Log the interaction
-    await appendLog("journal.jsonl", {
-      timestamp,
-      type: "interaction",
-      content: `User: ${message.content}\nBud: ${result.response}`,
-      userId: message.author.id,
-      toolsUsed: result.toolsUsed,
-    });
+    // Log the interaction (non-fatal if it fails)
+    try {
+      await appendLog("journal.jsonl", {
+        timestamp,
+        type: "interaction",
+        content: `User: ${message.content}\nBud: ${result.response}`,
+        userId: message.author.id,
+        toolsUsed: result.toolsUsed,
+      });
+    } catch (logError) {
+      console.error("[bud] Failed to log interaction:", logError);
+    }
   } catch (error) {
     console.error("[bud] Error processing message:", error);
 
-    await appendLog("events.jsonl", {
-      timestamp,
-      type: "error",
-      content: error instanceof Error ? error.message : String(error),
-    });
+    try {
+      await appendLog("events.jsonl", {
+        timestamp,
+        type: "error",
+        content: error instanceof Error ? error.message : String(error),
+      });
+    } catch (logError) {
+      console.error("[bud] Failed to log error:", logError);
+    }
 
     await message.reply("Sorry, I encountered an error processing your message.");
   }
