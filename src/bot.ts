@@ -3,6 +3,17 @@ import { config, validateConfig } from "./config";
 import { invokeAgent } from "./agent";
 import { appendLog } from "./memory/logs";
 
+// Catch uncaught errors
+process.on("uncaughtException", (error) => {
+  console.error("[FATAL] Uncaught exception:", error);
+  console.error("[FATAL] Stack:", error.stack);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[FATAL] Unhandled rejection at:", promise);
+  console.error("[FATAL] Reason:", reason);
+});
+
 validateConfig();
 
 const client = new Client({
