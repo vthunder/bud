@@ -43,6 +43,8 @@ export async function invokeAgent(
         permissionMode: "bypassPermissions",
         // Start with no tools for basic chat
         allowedTools: [],
+        // Explicitly set path to claude executable
+        pathToClaudeCodeExecutable: "/usr/bin/claude",
       },
     });
 
