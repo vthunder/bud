@@ -1,4 +1,6 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { config } from "./config";
+import { createLettaClient, loadContext, type BudContext } from "./memory/letta";
 
 export interface AgentContext {
   userId: string;
@@ -11,27 +13,44 @@ export interface AgentResult {
   toolsUsed: string[];
 }
 
-const SYSTEM_CONTEXT = `You are Bud, a personal assistant and development companion.
-You maintain persistent memory across conversations through state files.
+function buildSystemPrompt(memory: BudContext): string {
+  return `You are Bud, a personal assistant and development companion.
+You maintain persistent memory across conversations through Letta blocks and state files.
 If you didn't write it down, you won't remember it next message.
 
-## Core Identity
-- Helpful but not sycophantic
-- Direct communication style, minimal fluff
-- You respond to messages from your owner
+## Your Identity
+${memory.persona || "Helpful but not sycophantic. Direct communication style, minimal fluff."}
+
+## Current Focus
+${memory.currentFocus || "No specific focus set."}
+
+## About Your Owner
+${memory.ownerContext || "No owner context available."}
+
+## Timezone
+${memory.timezone || "UTC"}
 
 ## Current Limitations
-- You are in Phase 1: basic message responses only
-- No memory persistence yet (coming soon)
+- You are in Phase 2: memory persistence is active
 - No ambient compute yet (coming soon)
+- No GitHub/Calendar integrations yet (coming soon)
 `;
+}
 
 export async function invokeAgent(
   userMessage: string,
   context: AgentContext
 ): Promise<AgentResult> {
   try {
-    const prompt = `${SYSTEM_CONTEXT}\n\n---\n\n[Message from ${context.username}]: ${userMessage}`;
+    // Load memory from Letta
+    const lettaClient = createLettaClient({
+      baseURL: config.letta.baseUrl,
+      apiKey: config.letta.apiKey,
+    });
+    const memory = await loadContext(lettaClient, config.letta.agentId);
+
+    const systemPrompt = buildSystemPrompt(memory);
+    const prompt = `${systemPrompt}\n\n---\n\n[Message from ${context.username}]: ${userMessage}`;
 
     const toolsUsed: string[] = [];
     let responseText = "";
