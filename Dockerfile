@@ -7,8 +7,8 @@ RUN apt-get update && apt-get install -y curl && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code CLI globally
-RUN npm install -g @anthropic-ai/claude-code
+# Install Claude Code CLI and tsx globally
+RUN npm install -g @anthropic-ai/claude-code tsx
 
 # Create home directory for Claude CLI config
 ENV HOME=/app
@@ -22,5 +22,5 @@ RUN bun install --frozen-lockfile --production
 COPY src ./src
 COPY state ./state
 
-# Run the bot
-CMD ["bun", "run", "src/bot.ts"]
+# Run the bot with tsx (SDK uses child_process which has issues in Bun)
+CMD ["tsx", "src/bot.ts"]
