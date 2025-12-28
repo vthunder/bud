@@ -11,7 +11,8 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.76",
     "@letta-ai/letta-client": "^1.6.2",
-    "discord.js": "^14.14.1"
+    "discord.js": "^14.14.1",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@types/bun": "latest",

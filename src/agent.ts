@@ -1,6 +1,7 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { config } from "./config";
 import { createLettaClient, loadContext, type BudContext } from "./memory/letta";
+import { createMemoryToolsServer, MEMORY_TOOL_NAMES } from "./tools/memory";
 
 export interface AgentContext {
   userId: string;
@@ -15,7 +16,7 @@ export interface AgentResult {
 
 function buildSystemPrompt(memory: BudContext): string {
   return `You are Bud, a personal assistant and development companion.
-You maintain persistent memory across conversations through Letta blocks and state files.
+You maintain persistent memory across conversations through Letta memory blocks.
 If you didn't write it down, you won't remember it next message.
 
 ## Your Identity
@@ -30,8 +31,17 @@ ${memory.ownerContext || "No owner context available."}
 ## Timezone
 ${memory.timezone || "UTC"}
 
+## Memory Tools
+You have access to memory tools to persist information:
+- list_memory: See available memory blocks
+- get_memory: Read a memory block
+- set_memory: Update a memory block (use this to remember things!)
+
+When you learn something important about your owner, your tasks, or yourself,
+use set_memory to persist it. Otherwise you will forget it next message.
+
 ## Current Limitations
-- You are in Phase 2: memory persistence is active
+- You are in Phase 2.5: memory persistence via Letta is active
 - No ambient compute yet (coming soon)
 - No GitHub/Calendar integrations yet (coming soon)
 `;
@@ -42,12 +52,17 @@ export async function invokeAgent(
   context: AgentContext
 ): Promise<AgentResult> {
   try {
-    // Load memory from Letta
+    // Create Letta client
     const lettaClient = createLettaClient({
       baseURL: config.letta.baseUrl,
       apiKey: config.letta.apiKey,
     });
+
+    // Load memory from Letta
     const memory = await loadContext(lettaClient, config.letta.agentId);
+
+    // Create memory tools MCP server
+    const memoryServer = createMemoryToolsServer(lettaClient, config.letta.agentId);
 
     const systemPrompt = buildSystemPrompt(memory);
     const prompt = `${systemPrompt}\n\n---\n\n[Message from ${context.username}]: ${userMessage}`;
@@ -59,7 +74,10 @@ export async function invokeAgent(
       prompt,
       options: {
         permissionMode: "bypassPermissions",
-        allowedTools: [],
+        mcpServers: {
+          "letta-memory": memoryServer,
+        },
+        allowedTools: MEMORY_TOOL_NAMES,
         pathToClaudeCodeExecutable: "/usr/bin/claude",
       },
     });
