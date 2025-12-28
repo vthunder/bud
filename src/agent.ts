@@ -1,4 +1,4 @@
-import { query, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import { query } from "@anthropic-ai/claude-agent-sdk";
 
 export interface AgentContext {
   userId: string;
@@ -11,7 +11,7 @@ export interface AgentResult {
   toolsUsed: string[];
 }
 
-const SYSTEM_PROMPT = `You are Bud, a personal assistant and development companion.
+const SYSTEM_CONTEXT = `You are Bud, a personal assistant and development companion.
 You maintain persistent memory across conversations through state files.
 If you didn't write it down, you won't remember it next message.
 
@@ -31,28 +31,23 @@ export async function invokeAgent(
   context: AgentContext
 ): Promise<AgentResult> {
   try {
-    const prompt = `[Context: Message from ${context.username} in channel ${context.channelId}]\n\n${userMessage}`;
+    // Prepend system context to the prompt
+    const prompt = `${SYSTEM_CONTEXT}\n\n---\n\n[Message from ${context.username}]: ${userMessage}`;
 
     const toolsUsed: string[] = [];
+    let responseText = "";
 
     const result = query({
       prompt,
       options: {
-        systemPrompt: SYSTEM_PROMPT,
-        maxTurns: 1,
         permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        // Disable tools for Phase 1 - just chat responses
-        tools: [],
+        // Start with no tools for basic chat
+        allowedTools: [],
       },
     });
 
-    let finalResult: SDKResultMessage | undefined;
-    let responseText = "";
-
     for await (const message of result) {
-      if (message.type === "assistant") {
-        // Extract text from assistant message content blocks
+      if (message.type === "assistant" && "message" in message) {
         for (const block of message.message.content) {
           if (block.type === "text") {
             responseText += block.text;
@@ -60,14 +55,12 @@ export async function invokeAgent(
             toolsUsed.push(block.name);
           }
         }
-      } else if (message.type === "result") {
-        finalResult = message;
+      } else if (message.type === "result" && "result" in message) {
+        // Prefer the final result if available
+        if (message.result) {
+          responseText = message.result;
+        }
       }
-    }
-
-    // If we have a result message with a result string, prefer that
-    if (finalResult && finalResult.subtype === "success" && finalResult.result) {
-      responseText = finalResult.result;
     }
 
     return {
@@ -75,7 +68,7 @@ export async function invokeAgent(
       toolsUsed,
     };
   } catch (error) {
-    console.error('[agent] SDK error:', error);
+    console.error("[agent] SDK error:", error);
     return {
       response: "I encountered an error processing your request. Please try again.",
       toolsUsed: [],
