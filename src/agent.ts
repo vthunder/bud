@@ -38,6 +38,9 @@ export async function invokeAgent(
     const toolsUsed: string[] = [];
     let responseText = "";
 
+    // Enable SDK debug mode
+    process.env.DEBUG_CLAUDE_AGENT_SDK = "1";
+
     const result = query({
       prompt,
       options: {
@@ -46,6 +49,8 @@ export async function invokeAgent(
         allowedTools: [],
         // Explicitly set path to claude executable
         pathToClaudeCodeExecutable: "/usr/bin/claude",
+        // Capture stderr for debugging
+        stderr: true,
       },
     });
 
