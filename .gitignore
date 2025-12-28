@@ -4,6 +4,7 @@ dist/
 *.log
 .DS_Store
 .beads/
+.claude/
 
 # Local env
 .env

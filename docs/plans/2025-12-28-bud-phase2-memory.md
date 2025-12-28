@@ -234,7 +234,7 @@ describe("loadContext", () => {
     mockRetrieve
       .mockResolvedValueOnce({ value: "I am Bud" })
       .mockResolvedValueOnce({ value: "Working on Phase 2" })
-      .mockResolvedValueOnce({ value: "Tim, developer" })
+      .mockResolvedValueOnce({ value: "Owner info" })
       .mockResolvedValueOnce({ value: "Europe/Berlin" });
 
     const client = createLettaClient({
@@ -246,7 +246,7 @@ describe("loadContext", () => {
 
     expect(context.persona).toBe("I am Bud");
     expect(context.currentFocus).toBe("Working on Phase 2");
-    expect(context.ownerContext).toBe("Tim, developer");
+    expect(context.ownerContext).toBe("Owner info");
     expect(context.timezone).toBe("Europe/Berlin");
   });
 
@@ -461,7 +461,7 @@ Direct communication style, minimal fluff.`,
   },
   {
     label: "owner_context",
-    value: "Tim - software developer. Prefers concise, technical communication.",
+    value: "Your owner. Update this with information about them.",
     limit: 5000,
   },
   {
@@ -541,14 +541,14 @@ These commands will be run manually by the operator:
 
 ```bash
 # If using Letta Cloud:
-ssh dokku@sandmill.org config:set bud LETTA_API_URL=https://api.letta.com
-ssh dokku@sandmill.org config:set bud LETTA_API_KEY=<your-letta-api-key>
+dokku config:set bud LETTA_API_URL=https://api.letta.com
+dokku config:set bud LETTA_API_KEY=<your-letta-api-key>
 
 # If self-hosting Letta:
-ssh dokku@sandmill.org config:set bud LETTA_API_URL=http://letta:8283
+dokku config:set bud LETTA_API_URL=http://letta:8283
 
 # After running setup script:
-ssh dokku@sandmill.org config:set bud LETTA_AGENT_ID=<agent-id-from-setup>
+dokku config:set bud LETTA_AGENT_ID=<agent-id-from-setup>
 ```
 
 **Step 3: Deploy**
@@ -591,7 +591,7 @@ LETTA_API_KEY=<key> bun run scripts/setup-letta-agent.ts
 Then set the agent ID in Dokku:
 
 ```bash
-ssh dokku@sandmill.org config:set bud LETTA_AGENT_ID=<agent-id>
+dokku config:set bud LETTA_AGENT_ID=<agent-id>
 ```
 
 ---

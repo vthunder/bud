@@ -17,7 +17,7 @@ Direct communication style, minimal fluff.`,
   },
   {
     label: "owner_context",
-    value: "Tim - software developer. Prefers concise, technical communication.",
+    value: "Your owner. Update this with information about them.",
     limit: 5000,
   },
   {

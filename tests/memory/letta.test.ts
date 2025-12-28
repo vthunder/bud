@@ -88,7 +88,7 @@ describe("loadContext", () => {
     mockRetrieve
       .mockResolvedValueOnce({ value: "I am Bud" })
       .mockResolvedValueOnce({ value: "Working on Phase 2" })
-      .mockResolvedValueOnce({ value: "Tim, developer" })
+      .mockResolvedValueOnce({ value: "Owner info" })
       .mockResolvedValueOnce({ value: "Europe/Berlin" });
 
     const client = createLettaClient({
@@ -100,7 +100,7 @@ describe("loadContext", () => {
 
     expect(context.persona).toBe("I am Bud");
     expect(context.currentFocus).toBe("Working on Phase 2");
-    expect(context.ownerContext).toBe("Tim, developer");
+    expect(context.ownerContext).toBe("Owner info");
     expect(context.timezone).toBe("Europe/Berlin");
   });
 
