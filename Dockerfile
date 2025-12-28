@@ -10,17 +10,21 @@ RUN apt-get update && apt-get install -y curl && \
 # Install Claude Code CLI globally
 RUN npm install -g @anthropic-ai/claude-code
 
-# Create home directory for Claude CLI config
+# Create non-root user (Claude CLI blocks root for security)
+RUN useradd -m -s /bin/bash bud && chown -R bud:bud /app
+USER bud
+
+# Set home directory for Claude CLI config
 ENV HOME=/app
 RUN mkdir -p /app/.claude
 
 # Install dependencies
-COPY package.json bun.lock ./
+COPY --chown=bud:bud package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 
 # Copy source
-COPY src ./src
-COPY state ./state
+COPY --chown=bud:bud src ./src
+COPY --chown=bud:bud state ./state
 
 # Run the bot
 CMD ["bun", "run", "src/bot.ts"]
