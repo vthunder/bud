@@ -16,13 +16,20 @@ console.log("Agent ID:", agentId);
 const client = new Letta({ baseURL: baseUrl, apiKey });
 
 try {
-  // Just try to create the block directly
-  const result = await client.agents.blocks.create(agentId, {
+  // Step 1: Create a standalone block
+  console.log("Creating block...");
+  const block = await client.blocks.create({
     label: "scheduled_tasks",
     value: "[]",
     limit: 10000,
   });
-  console.log("Created block:", JSON.stringify(result, null, 2));
+  console.log("Created block:", block.id);
+
+  // Step 2: Attach it to the agent
+  console.log("Attaching to agent...");
+  const result = await client.agents.blocks.attach(block.id, { agent_id: agentId });
+  console.log("Attached successfully!");
+  console.log("Agent state:", JSON.stringify(result, null, 2));
 } catch (e: any) {
   if (e.message?.includes("already exists") || e.message?.includes("duplicate")) {
     console.log("Block 'scheduled_tasks' already exists");
