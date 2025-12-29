@@ -2,6 +2,11 @@ import { tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type Letta from "@letta-ai/letta-client";
 import { getMemoryBlock, setMemoryBlock } from "../memory/letta";
+import {
+  scheduleTask,
+  cancelTask,
+  listScheduledTasks,
+} from "./tasks";
 
 export function createMemoryToolsServer(client: Letta, agentId: string) {
   const getMemoryTool = tool(
@@ -89,10 +94,78 @@ export function createMemoryToolsServer(client: Letta, agentId: string) {
     }
   );
 
+  const scheduleTaskTool = tool(
+    "schedule_task",
+    "Schedule a task or reminder for a future time. Use relative times like '30m', '2h', '1d' or ISO timestamps. For recurring tasks, specify 'daily', 'weekly', or 'monthly'.",
+    {
+      description: z.string().describe("What to do or remind about"),
+      due_at: z.string().describe("When: relative ('30m', '2h', '1d') or ISO timestamp"),
+      recurring: z.enum(["daily", "weekly", "monthly"]).optional().describe("Recurrence pattern"),
+      context: z.string().optional().describe("Additional context for when the task triggers"),
+    },
+    async (args) => {
+      const result = await scheduleTask(
+        client,
+        agentId,
+        args.description,
+        args.due_at,
+        args.recurring,
+        args.context
+      );
+      if (result.success) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Scheduled: "${result.task?.description}" for ${result.task?.dueAt}${result.task?.recurring ? ` (${result.task.recurring})` : ""}`,
+          }],
+        };
+      }
+      return { content: [{ type: "text" as const, text: `Error: ${result.error}` }] };
+    }
+  );
+
+  const cancelTaskTool = tool(
+    "cancel_task",
+    "Cancel a scheduled task by its ID",
+    {
+      task_id: z.string().describe("The task ID to cancel"),
+    },
+    async (args) => {
+      const result = await cancelTask(client, agentId, args.task_id);
+      if (result.success) {
+        return { content: [{ type: "text" as const, text: "Task cancelled" }] };
+      }
+      return { content: [{ type: "text" as const, text: `Error: ${result.error}` }] };
+    }
+  );
+
+  const listTasksTool = tool(
+    "list_tasks",
+    "List all scheduled tasks and reminders",
+    {},
+    async () => {
+      const result = await listScheduledTasks(client, agentId);
+      if (result.tasks.length === 0) {
+        return { content: [{ type: "text" as const, text: "No scheduled tasks" }] };
+      }
+      const list = result.tasks
+        .map((t) => `- [${t.id}] ${t.description} (due: ${t.dueAt}${t.recurring ? `, ${t.recurring}` : ""})`)
+        .join("\n");
+      return { content: [{ type: "text" as const, text: list }] };
+    }
+  );
+
   return createSdkMcpServer({
     name: "letta-memory",
     version: "1.0.0",
-    tools: [getMemoryTool, setMemoryTool, listMemoryTool],
+    tools: [
+      getMemoryTool,
+      setMemoryTool,
+      listMemoryTool,
+      scheduleTaskTool,
+      cancelTaskTool,
+      listTasksTool,
+    ],
   });
 }
 
@@ -100,4 +173,7 @@ export const MEMORY_TOOL_NAMES = [
   "mcp__letta-memory__get_memory",
   "mcp__letta-memory__set_memory",
   "mcp__letta-memory__list_memory",
+  "mcp__letta-memory__schedule_task",
+  "mcp__letta-memory__cancel_task",
+  "mcp__letta-memory__list_tasks",
 ];
