@@ -11,6 +11,10 @@ export const config = {
     apiKey: process.env.LETTA_API_KEY ?? "",
     agentId: process.env.LETTA_AGENT_ID ?? "",
   },
+  github: {
+    token: process.env.GITHUB_TOKEN ?? "",
+    repos: (process.env.GITHUB_REPOS ?? "").split(",").filter(Boolean),
+  },
 } as const;
 
 export function validateConfig(): void {
