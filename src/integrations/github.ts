@@ -10,6 +10,28 @@ export interface GitHubPR {
   updatedAt: string;
 }
 
+export interface GitHubPRDetails extends GitHubPR {
+  body: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+}
+
+export interface GitHubNotification {
+  id: string;
+  unread: boolean;
+  reason: string;
+  updated_at: string;
+  subject: {
+    title: string;
+    url: string;
+    type: string;
+  };
+  repository: {
+    full_name: string;
+  };
+}
+
 export interface GitHubIssue {
   number: number;
   title: string;
@@ -57,7 +79,7 @@ export async function listIssues(repo: string, token: string): Promise<GitHubIss
   }
 }
 
-export async function getPRDetails(repo: string, prNumber: number, token: string): Promise<GitHubPR | null> {
+export async function getPRDetails(repo: string, prNumber: number, token: string): Promise<GitHubPRDetails | null> {
   try {
     const result = await $`gh pr view ${prNumber} --repo ${repo} --json number,title,author,state,url,createdAt,updatedAt,body,additions,deletions,changedFiles`
       .env({ GITHUB_TOKEN: token })
@@ -69,7 +91,7 @@ export async function getPRDetails(repo: string, prNumber: number, token: string
   }
 }
 
-export async function getNotifications(token: string): Promise<any[]> {
+export async function getNotifications(token: string): Promise<GitHubNotification[]> {
   try {
     const result = await $`gh api notifications --paginate`
       .env({ GITHUB_TOKEN: token })
