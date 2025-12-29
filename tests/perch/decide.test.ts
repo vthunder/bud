@@ -31,6 +31,7 @@ describe("decidePerchAction", () => {
     },
     recentInteractions: [],
     hoursSinceLastInteraction: null,
+    dueTasks: [],
   };
 
   beforeEach(() => {

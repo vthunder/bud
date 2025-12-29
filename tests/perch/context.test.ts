@@ -15,9 +15,12 @@ mock.module("../../src/memory/logs", () => ({
   readLogs: mockReadLogs,
 }));
 
+const mockGetMemoryBlock = mock(() => Promise.resolve("[]"));
+
 mock.module("../../src/memory/letta", () => ({
   loadContext: mockLoadContext,
   createLettaClient: () => ({}),
+  getMemoryBlock: mockGetMemoryBlock,
 }));
 
 const { gatherPerchContext } = await import("../../src/perch/context");
@@ -26,6 +29,8 @@ describe("gatherPerchContext", () => {
   beforeEach(() => {
     mockReadLogs.mockClear();
     mockLoadContext.mockClear();
+    mockGetMemoryBlock.mockClear();
+    mockGetMemoryBlock.mockResolvedValue("[]");
   });
 
   test("gathers time, memory, and recent interactions", async () => {
@@ -50,6 +55,7 @@ describe("gatherPerchContext", () => {
     expect(context.memory.persona).toBe("Test persona");
     expect(context.recentInteractions).toHaveLength(1);
     expect(context.hoursSinceLastInteraction).toBe(2);
+    expect(context.dueTasks).toEqual([]);
   });
 
   test("handles no recent interactions", async () => {
