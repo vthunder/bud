@@ -16,16 +16,7 @@ console.log("Agent ID:", agentId);
 const client = new Letta({ baseURL: baseUrl, apiKey });
 
 try {
-  // First check if block already exists
-  const blocks = await client.agents.blocks.list(agentId);
-  const existing = blocks.find((b: any) => b.label === "scheduled_tasks");
-
-  if (existing) {
-    console.log("Block 'scheduled_tasks' already exists:", existing.id);
-    process.exit(0);
-  }
-
-  // Create the block
+  // Just try to create the block directly
   const result = await client.agents.blocks.create(agentId, {
     label: "scheduled_tasks",
     value: "[]",
@@ -33,6 +24,11 @@ try {
   });
   console.log("Created block:", JSON.stringify(result, null, 2));
 } catch (e: any) {
+  if (e.message?.includes("already exists") || e.message?.includes("duplicate")) {
+    console.log("Block 'scheduled_tasks' already exists");
+    process.exit(0);
+  }
   console.error("Error:", e.message);
+  console.error("Full error:", JSON.stringify(e, null, 2));
   process.exit(1);
 }
