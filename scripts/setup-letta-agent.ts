@@ -38,6 +38,11 @@ Direct communication style, minimal fluff.`,
 - Cannot modify own code yet`,
     limit: 2000,
   },
+  {
+    label: "scheduled_tasks",
+    value: "[]",
+    limit: 10000,
+  },
 ];
 
 async function main() {
