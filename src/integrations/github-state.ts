@@ -59,3 +59,7 @@ export function pruneOldEntries(state: GitHubState, now: Date = new Date()): Git
     seen: prunedSeen,
   };
 }
+
+export function makeItemKey(repo: string, type: "pr" | "issue", number: number): string {
+  return `${repo}#${type}-${number}`;
+}
