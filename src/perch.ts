@@ -58,7 +58,7 @@ async function main() {
 
   // Make decision (calls LLM)
   console.log("[perch] Deciding action...");
-  const decision = await decidePerchAction(context);
+  const decision = await decidePerchAction(context, { hasDueTasks, isFullTick });
 
   if (!decision) {
     console.log("[perch] Decision: SILENT");
