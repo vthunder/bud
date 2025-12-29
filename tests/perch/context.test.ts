@@ -1,5 +1,14 @@
 import { describe, expect, test, mock, beforeEach } from "bun:test";
 
+// Mock the GitHub module BEFORE importing context
+const mockCheckGitHubActivity = mock(() =>
+  Promise.resolve({ activity: {}, summary: "", hasNew: false })
+);
+
+mock.module("../../src/perch/github", () => ({
+  checkGitHubActivity: mockCheckGitHubActivity,
+}));
+
 // Mock dependencies
 const mockReadLogs = mock(() => Promise.resolve([]));
 const mockLoadContext = mock(() =>
@@ -23,6 +32,7 @@ mock.module("../../src/memory/letta", () => ({
   getMemoryBlock: mockGetMemoryBlock,
 }));
 
+// Now import the module being tested
 const { gatherPerchContext } = await import("../../src/perch/context");
 
 describe("gatherPerchContext", () => {
@@ -31,6 +41,8 @@ describe("gatherPerchContext", () => {
     mockLoadContext.mockClear();
     mockGetMemoryBlock.mockClear();
     mockGetMemoryBlock.mockResolvedValue("[]");
+    mockCheckGitHubActivity.mockClear();
+    mockCheckGitHubActivity.mockResolvedValue({ activity: {}, summary: "", hasNew: false });
   });
 
   test("gathers time, memory, and recent interactions", async () => {
@@ -56,6 +68,8 @@ describe("gatherPerchContext", () => {
     expect(context.recentInteractions).toHaveLength(1);
     expect(context.hoursSinceLastInteraction).toBe(2);
     expect(context.dueTasks).toEqual([]);
+    expect(context.githubSummary).toBe("");
+    expect(context.hasNewGitHub).toBe(false);
   });
 
   test("handles no recent interactions", async () => {
@@ -69,5 +83,7 @@ describe("gatherPerchContext", () => {
 
     expect(context.recentInteractions).toHaveLength(0);
     expect(context.hoursSinceLastInteraction).toBeNull();
+    expect(context.githubSummary).toBe("");
+    expect(context.hasNewGitHub).toBe(false);
   });
 });
