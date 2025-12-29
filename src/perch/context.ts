@@ -2,6 +2,7 @@ import type Letta from "@letta-ai/letta-client";
 import { readLogs, type LogEntry } from "../memory/logs";
 import { loadContext, getMemoryBlock, type BudContext } from "../memory/letta";
 import { parseTasksJson, getDueTasks, type ScheduledTask } from "./tasks";
+import { checkGitHubActivity } from "./github";
 
 export interface PerchContext {
   currentTime: string;
@@ -11,6 +12,8 @@ export interface PerchContext {
   recentInteractions: LogEntry[];
   hoursSinceLastInteraction: number | null;
   dueTasks: ScheduledTask[];
+  githubSummary: string;
+  hasNewGitHub: boolean;
 }
 
 export interface GatherContextOptions {
@@ -45,6 +48,9 @@ export async function gatherPerchContext(
   const allTasks = parseTasksJson(tasksJson);
   const dueTasks = getDueTasks(allTasks, now);
 
+  // Check GitHub activity
+  const { summary: githubSummary, hasNew: hasNewGitHub } = await checkGitHubActivity();
+
   // Read recent journal entries
   const allLogs = await readLogs("journal.jsonl");
   const recentInteractions = allLogs.filter(
@@ -67,5 +73,7 @@ export async function gatherPerchContext(
     recentInteractions,
     hoursSinceLastInteraction,
     dueTasks,
+    githubSummary,
+    hasNewGitHub,
   };
 }
