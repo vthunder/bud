@@ -25,11 +25,11 @@ RUN bun install --frozen-lockfile --production
 # Copy source
 COPY --chown=bud:bud src ./src
 COPY --chown=bud:bud state ./state
+COPY --chown=bud:bud scripts ./scripts
 
 # Copy cron configuration
 COPY --chown=bud:bud cron.d ./cron.d
-COPY --chown=bud:bud scripts/run-perch.sh ./run-perch.sh
-RUN chmod +x ./run-perch.sh
+RUN chmod +x ./scripts/run-perch.sh
 
 # Run the bot
 CMD ["bun", "run", "src/bot.ts"]

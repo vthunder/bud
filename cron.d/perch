@@ -1,2 +1,2 @@
 # Run perch tick every 5 minutes
-*/5 * * * * /app/run-perch.sh
+*/5 * * * * /app/scripts/run-perch.sh
