@@ -32,6 +32,8 @@ describe("decidePerchAction", () => {
     recentInteractions: [],
     hoursSinceLastInteraction: null,
     dueTasks: [],
+    githubSummary: "",
+    hasNewGitHub: false,
   };
 
   beforeEach(() => {
