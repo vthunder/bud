@@ -35,6 +35,16 @@ These tasks are due NOW. You should address them in your message.
 `
       : "";
 
+  // Build GitHub activity section
+  const githubSection = context.hasNewGitHub
+    ? `## GitHub Activity (NEW)
+${context.githubSummary}
+
+You have new GitHub activity. Consider mentioning it.
+
+`
+    : "";
+
   // Build tick type section
   const tickTypeSection = options.isFullTick
     ? "This is a FULL perch tick (every 2 hours) - you may speak even without due tasks if appropriate."
@@ -66,7 +76,7 @@ ${context.memory.ownerContext || "No owner context."}
 ## Tick Type
 ${tickTypeSection}
 
-${dueTasksSection}## Recent Interactions (last 24h)
+${dueTasksSection}${githubSection}## Recent Interactions (last 24h)
 ${interactionSummary}
 
 ## Your Task
