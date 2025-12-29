@@ -5,10 +5,20 @@ import { gatherPerchContext } from "./perch/context";
 import { decidePerchAction } from "./perch/decide";
 import { sendMessage } from "./discord/sender";
 import { appendLog } from "./memory/logs";
+import { markTaskComplete } from "./tools/tasks";
+
+const FULL_PERCH_INTERVAL_HOURS = 2;
+
+function isFullPerchTick(now: Date): boolean {
+  // Full perch tick at even hours (0, 2, 4, ...)
+  return now.getUTCHours() % FULL_PERCH_INTERVAL_HOURS === 0 && now.getUTCMinutes() < 5;
+}
 
 async function main() {
   const timestamp = new Date().toISOString();
-  console.log(`[perch] Starting perch tick at ${timestamp}`);
+  const now = new Date();
+
+  console.log(`[perch] Starting tick at ${timestamp}`);
 
   try {
     validateConfig();
@@ -17,20 +27,36 @@ async function main() {
     process.exit(1);
   }
 
-  // Create Letta client
   const lettaClient = createLettaClient({
     baseURL: config.letta.baseUrl,
     apiKey: config.letta.apiKey,
   });
 
-  // Gather context
+  // Gather context (includes due tasks check)
   console.log("[perch] Gathering context...");
   const context = await gatherPerchContext({
     lettaClient,
     agentId: config.letta.agentId,
   });
 
-  // Make decision
+  const hasDueTasks = context.dueTasks.length > 0;
+  const isFullTick = isFullPerchTick(now);
+
+  // Fast path: no due tasks and not a full tick = exit silently
+  if (!hasDueTasks && !isFullTick) {
+    console.log("[perch] Fast path: no due tasks, not full tick. Exiting.");
+    await appendLog("perch.jsonl", {
+      timestamp,
+      type: "perch_fast",
+      content: "SKIP",
+    });
+    return;
+  }
+
+  // We have something to do - either due tasks or full tick
+  console.log(`[perch] Due tasks: ${context.dueTasks.length}, Full tick: ${isFullTick}`);
+
+  // Make decision (calls LLM)
   console.log("[perch] Deciding action...");
   const decision = await decidePerchAction(context);
 
@@ -43,9 +69,15 @@ async function main() {
       context: {
         hourOfDay: context.hourOfDay,
         dayOfWeek: context.dayOfWeek,
-        hoursSinceLastInteraction: context.hoursSinceLastInteraction,
+        dueTasks: context.dueTasks.length,
+        isFullTick,
       },
     });
+
+    // Mark due tasks as complete even if silent (they were processed)
+    for (const task of context.dueTasks) {
+      await markTaskComplete(lettaClient, config.letta.agentId, task.id);
+    }
     return;
   }
 
@@ -65,14 +97,19 @@ async function main() {
       type: "perch_tick",
       content: `SPEAK: ${decision.message}`,
       messageId: result.messageId,
+      dueTasks: context.dueTasks.map((t) => t.id),
     });
 
-    // Also log to journal for context in future ticks
     await appendLog("journal.jsonl", {
       timestamp,
       type: "perch_message",
       content: `Bud (perch): ${decision.message}`,
     });
+
+    // Mark due tasks as complete
+    for (const task of context.dueTasks) {
+      await markTaskComplete(lettaClient, config.letta.agentId, task.id);
+    }
   } else {
     console.error(`[perch] Failed to send message: ${result.error}`);
     await appendLog("events.jsonl", {
