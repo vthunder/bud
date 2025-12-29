@@ -2,7 +2,7 @@
   "cron": [
     {
       "command": "bun run src/perch.ts",
-      "schedule": "0 */2 * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }
