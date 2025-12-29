@@ -6,6 +6,7 @@ import {
   serializeTasksJson,
   createTask,
   removeTask,
+  advanceRecurringTask,
 } from "../perch/tasks";
 
 const TASKS_BLOCK = "scheduled_tasks";
@@ -84,9 +85,13 @@ export async function listScheduledTasks(
   client: Letta,
   agentId: string
 ): Promise<ListTasksResult> {
-  const json = await getMemoryBlock(client, agentId, TASKS_BLOCK);
-  const tasks = parseTasksJson(json);
-  return { tasks };
+  try {
+    const json = await getMemoryBlock(client, agentId, TASKS_BLOCK);
+    const tasks = parseTasksJson(json);
+    return { tasks };
+  } catch {
+    return { tasks: [] };
+  }
 }
 
 export async function markTaskComplete(
@@ -106,7 +111,6 @@ export async function markTaskComplete(
     const task = tasks[taskIndex];
 
     if (task.recurring) {
-      const { advanceRecurringTask } = await import("../perch/tasks");
       const nextTask = advanceRecurringTask(task);
       if (nextTask) {
         tasks[taskIndex] = nextTask;
