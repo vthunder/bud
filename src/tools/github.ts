@@ -24,25 +24,34 @@ export function createGitHubToolsServer() {
         return { content: [{ type: "text" as const, text: "GitHub not configured (no GITHUB_TOKEN)" }] };
       }
 
-      const repos = args.repo ? [args.repo] : config.github.repos;
-      if (repos.length === 0) {
-        return { content: [{ type: "text" as const, text: "No repos configured" }] };
-      }
-
-      const results: string[] = [];
-      for (const repo of repos) {
-        const prs = await listPRs(repo, token);
-        if (prs.length > 0) {
-          results.push(`**${repo}:**`);
-          prs.forEach((pr) => results.push(`  - ${formatPRForDisplay(pr)}`));
+      try {
+        const repos = args.repo ? [args.repo] : config.github.repos;
+        if (repos.length === 0) {
+          return { content: [{ type: "text" as const, text: "No repos configured" }] };
         }
-      }
 
-      if (results.length === 0) {
-        return { content: [{ type: "text" as const, text: "No open PRs found" }] };
-      }
+        const results: string[] = [];
+        for (const repo of repos) {
+          const prs = await listPRs(repo, token);
+          if (prs.length > 0) {
+            results.push(`**${repo}:**`);
+            prs.forEach((pr) => results.push(`  - ${formatPRForDisplay(pr)}`));
+          }
+        }
 
-      return { content: [{ type: "text" as const, text: results.join("\n") }] };
+        if (results.length === 0) {
+          return { content: [{ type: "text" as const, text: "No open PRs found" }] };
+        }
+
+        return { content: [{ type: "text" as const, text: results.join("\n") }] };
+      } catch (error) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Error listing PRs: ${error}`,
+          }],
+        };
+      }
     }
   );
 
@@ -57,25 +66,34 @@ export function createGitHubToolsServer() {
         return { content: [{ type: "text" as const, text: "GitHub not configured (no GITHUB_TOKEN)" }] };
       }
 
-      const repos = args.repo ? [args.repo] : config.github.repos;
-      if (repos.length === 0) {
-        return { content: [{ type: "text" as const, text: "No repos configured" }] };
-      }
-
-      const results: string[] = [];
-      for (const repo of repos) {
-        const issues = await listIssues(repo, token);
-        if (issues.length > 0) {
-          results.push(`**${repo}:**`);
-          issues.forEach((issue) => results.push(`  - ${formatIssueForDisplay(issue)}`));
+      try {
+        const repos = args.repo ? [args.repo] : config.github.repos;
+        if (repos.length === 0) {
+          return { content: [{ type: "text" as const, text: "No repos configured" }] };
         }
-      }
 
-      if (results.length === 0) {
-        return { content: [{ type: "text" as const, text: "No open issues assigned to you" }] };
-      }
+        const results: string[] = [];
+        for (const repo of repos) {
+          const issues = await listIssues(repo, token);
+          if (issues.length > 0) {
+            results.push(`**${repo}:**`);
+            issues.forEach((issue) => results.push(`  - ${formatIssueForDisplay(issue)}`));
+          }
+        }
 
-      return { content: [{ type: "text" as const, text: results.join("\n") }] };
+        if (results.length === 0) {
+          return { content: [{ type: "text" as const, text: "No open issues assigned to you" }] };
+        }
+
+        return { content: [{ type: "text" as const, text: results.join("\n") }] };
+      } catch (error) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Error listing issues: ${error}`,
+          }],
+        };
+      }
     }
   );
 
@@ -91,19 +109,28 @@ export function createGitHubToolsServer() {
         return { content: [{ type: "text" as const, text: "GitHub not configured (no GITHUB_TOKEN)" }] };
       }
 
-      const pr = await getPRDetails(args.repo, args.pr_number, token);
-      if (!pr) {
-        return { content: [{ type: "text" as const, text: `PR #${args.pr_number} not found in ${args.repo}` }] };
+      try {
+        const pr = await getPRDetails(args.repo, args.pr_number, token);
+        if (!pr) {
+          return { content: [{ type: "text" as const, text: `PR #${args.pr_number} not found in ${args.repo}` }] };
+        }
+
+        const details = [
+          `**${pr.title}** (#${pr.number})`,
+          `Author: ${pr.author.login}`,
+          `State: ${pr.state}`,
+          `URL: ${pr.url}`,
+        ];
+
+        return { content: [{ type: "text" as const, text: details.join("\n") }] };
+      } catch (error) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Error getting PR details: ${error}`,
+          }],
+        };
       }
-
-      const details = [
-        `**${pr.title}** (#${pr.number})`,
-        `Author: ${pr.author.login}`,
-        `State: ${pr.state}`,
-        `URL: ${pr.url}`,
-      ];
-
-      return { content: [{ type: "text" as const, text: details.join("\n") }] };
     }
   );
 
@@ -116,16 +143,25 @@ export function createGitHubToolsServer() {
         return { content: [{ type: "text" as const, text: "GitHub not configured (no GITHUB_TOKEN)" }] };
       }
 
-      const notifications = await getNotifications(token);
-      if (notifications.length === 0) {
-        return { content: [{ type: "text" as const, text: "No unread notifications" }] };
+      try {
+        const notifications = await getNotifications(token);
+        if (notifications.length === 0) {
+          return { content: [{ type: "text" as const, text: "No unread notifications" }] };
+        }
+
+        const items = notifications.slice(0, 10).map((n) =>
+          `- [${n.repository.full_name}] ${n.subject.type}: ${n.subject.title}`
+        );
+
+        return { content: [{ type: "text" as const, text: items.join("\n") }] };
+      } catch (error) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Error getting notifications: ${error}`,
+          }],
+        };
       }
-
-      const items = notifications.slice(0, 10).map((n) =>
-        `- [${n.repository.full_name}] ${n.subject.type}: ${n.subject.title}`
-      );
-
-      return { content: [{ type: "text" as const, text: items.join("\n") }] };
     }
   );
 
