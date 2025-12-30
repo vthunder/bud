@@ -34,6 +34,7 @@ describe("decidePerchAction", () => {
     dueTasks: [],
     githubSummary: "",
     hasNewGitHub: false,
+    calendarSummary: "",
   };
 
   beforeEach(() => {

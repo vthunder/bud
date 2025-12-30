@@ -9,6 +9,14 @@ mock.module("../../src/perch/github", () => ({
   checkGitHubActivity: mockCheckGitHubActivity,
 }));
 
+const mockGetCalendarContext = mock(() =>
+  Promise.resolve({ summary: "", events: [] })
+);
+
+mock.module("../../src/perch/calendar", () => ({
+  getCalendarContext: mockGetCalendarContext,
+}));
+
 // Mock dependencies
 const mockReadLogs = mock(() => Promise.resolve([]));
 const mockLoadContext = mock(() =>
@@ -43,6 +51,8 @@ describe("gatherPerchContext", () => {
     mockGetMemoryBlock.mockResolvedValue("[]");
     mockCheckGitHubActivity.mockClear();
     mockCheckGitHubActivity.mockResolvedValue({ activity: {}, summary: "", hasNew: false });
+    mockGetCalendarContext.mockClear();
+    mockGetCalendarContext.mockResolvedValue({ summary: "", events: [] });
   });
 
   test("gathers time, memory, and recent interactions", async () => {
@@ -70,6 +80,7 @@ describe("gatherPerchContext", () => {
     expect(context.dueTasks).toEqual([]);
     expect(context.githubSummary).toBe("");
     expect(context.hasNewGitHub).toBe(false);
+    expect(context.calendarSummary).toBe("");
   });
 
   test("handles no recent interactions", async () => {
@@ -85,5 +96,6 @@ describe("gatherPerchContext", () => {
     expect(context.hoursSinceLastInteraction).toBeNull();
     expect(context.githubSummary).toBe("");
     expect(context.hasNewGitHub).toBe(false);
+    expect(context.calendarSummary).toBe("");
   });
 });
