@@ -13,7 +13,6 @@ export const config = {
   },
   github: {
     token: process.env.GITHUB_TOKEN ?? "",
-    repos: (process.env.GITHUB_REPOS ?? "").split(",").filter(Boolean),
   },
   calendar: {
     serviceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON ?? "",
