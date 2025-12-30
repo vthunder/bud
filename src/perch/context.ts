@@ -3,6 +3,7 @@ import { readLogs, type LogEntry } from "../memory/logs";
 import { loadContext, getMemoryBlock, type BudContext } from "../memory/letta";
 import { parseTasksJson, getDueTasks, type ScheduledTask } from "./tasks";
 import { checkGitHubActivity } from "./github";
+import { parseReposJson } from "../integrations/github";
 import { getCalendarContext } from "./calendar";
 
 export interface PerchContext {
@@ -50,8 +51,12 @@ export async function gatherPerchContext(
   const allTasks = parseTasksJson(tasksJson);
   const dueTasks = getDueTasks(allTasks, now);
 
+  // Load GitHub repos from memory
+  const reposJson = await getMemoryBlock(options.lettaClient, options.agentId, "github_repos");
+  const githubRepos = parseReposJson(reposJson);
+
   // Check GitHub activity
-  const { summary: githubSummary, hasNew: hasNewGitHub } = await checkGitHubActivity();
+  const { summary: githubSummary, hasNew: hasNewGitHub } = await checkGitHubActivity(githubRepos);
 
   // Get calendar context
   const { summary: calendarSummary } = await getCalendarContext();
