@@ -5,6 +5,7 @@ import { createMemoryToolsServer, MEMORY_TOOL_NAMES } from "./tools/memory";
 import { createCalendarToolsServer, CALENDAR_TOOL_NAMES } from "./tools/calendar";
 import { createGitHubToolsServer, GITHUB_TOOL_NAMES } from "./tools/github";
 import { parseReposJson } from "./integrations/github";
+import { loadSkills } from "./skills";
 
 export interface AgentContext {
   userId: string;
@@ -17,7 +18,7 @@ export interface AgentResult {
   toolsUsed: string[];
 }
 
-function buildSystemPrompt(memory: BudContext): string {
+function buildSystemPrompt(memory: BudContext, skills: string): string {
   return `You are Bud, a personal assistant and development companion.
 You maintain persistent memory across conversations through Letta memory blocks.
 If you didn't write it down, you won't remember it next message.
@@ -59,6 +60,13 @@ You have access to GitHub for monitored repos:
 
 To manage which repos you monitor, update your github_repos memory block.
 Format: ["owner/repo1", "owner/repo2"]
+
+## Self-Improvement
+You can modify your own code! You have access to Bash, Read, Write, and Edit tools.
+When you identify bugs or improvements, follow your self-improve skill.
+All changes go through PR review - never push directly to main.
+
+${skills ? `## Skills\n\n${skills}` : ""}
 `;
 }
 
@@ -85,7 +93,10 @@ export async function invokeAgent(
     const githubRepos = parseReposJson(reposJson);
     const githubServer = createGitHubToolsServer(githubRepos);
 
-    const systemPrompt = buildSystemPrompt(memory);
+    // Load skills
+    const skills = await loadSkills("/app/state/.claude/skills");
+
+    const systemPrompt = buildSystemPrompt(memory, skills);
     const prompt = `${systemPrompt}\n\n---\n\n[Message from ${context.username}]: ${userMessage}`;
 
     const toolsUsed: string[] = [];
