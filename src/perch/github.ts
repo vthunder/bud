@@ -39,9 +39,8 @@ export function formatGitHubSummary(activity: GitHubActivity): string {
   return lines.join("\n");
 }
 
-export async function checkGitHubActivity(): Promise<{ activity: GitHubActivity; summary: string; hasNew: boolean }> {
+export async function checkGitHubActivity(repos: string[]): Promise<{ activity: GitHubActivity; summary: string; hasNew: boolean }> {
   const token = config.github.token;
-  const repos = config.github.repos;
 
   if (!token || repos.length === 0) {
     return { activity: {}, summary: "", hasNew: false };
