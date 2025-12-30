@@ -22,4 +22,10 @@ describe("generateMermaidUrl", () => {
     const url = generateMermaidUrl(code);
     expect(url).toStartWith("https://mermaid.ink/img/");
   });
+
+  test("handles unicode characters", () => {
+    const code = 'graph TD\n  A["Hello 世界"] --> B';
+    const url = generateMermaidUrl(code);
+    expect(url).toStartWith("https://mermaid.ink/img/");
+  });
 });
