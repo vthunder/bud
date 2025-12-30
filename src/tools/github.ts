@@ -10,7 +10,7 @@ import {
   formatIssueForDisplay,
 } from "../integrations/github";
 
-export function createGitHubToolsServer() {
+export function createGitHubToolsServer(repos: string[]) {
   const token = config.github.token;
 
   const githubPRsTool = tool(
@@ -25,13 +25,13 @@ export function createGitHubToolsServer() {
       }
 
       try {
-        const repos = args.repo ? [args.repo] : config.github.repos;
-        if (repos.length === 0) {
+        const reposToCheck = args.repo ? [args.repo] : repos;
+        if (reposToCheck.length === 0) {
           return { content: [{ type: "text" as const, text: "No repos configured" }] };
         }
 
         const results: string[] = [];
-        for (const repo of repos) {
+        for (const repo of reposToCheck) {
           const prs = await listPRs(repo, token);
           if (prs.length > 0) {
             results.push(`**${repo}:**`);
@@ -67,13 +67,13 @@ export function createGitHubToolsServer() {
       }
 
       try {
-        const repos = args.repo ? [args.repo] : config.github.repos;
-        if (repos.length === 0) {
+        const reposToCheck = args.repo ? [args.repo] : repos;
+        if (reposToCheck.length === 0) {
           return { content: [{ type: "text" as const, text: "No repos configured" }] };
         }
 
         const results: string[] = [];
-        for (const repo of repos) {
+        for (const repo of reposToCheck) {
           const issues = await listIssues(repo, token);
           if (issues.length > 0) {
             results.push(`**${repo}:**`);
