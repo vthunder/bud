@@ -1,7 +1,10 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { config } from "./config";
-import { createLettaClient, loadContext, type BudContext } from "./memory/letta";
+import { createLettaClient, loadContext, getMemoryBlock, type BudContext } from "./memory/letta";
 import { createMemoryToolsServer, MEMORY_TOOL_NAMES } from "./tools/memory";
+import { createCalendarToolsServer, CALENDAR_TOOL_NAMES } from "./tools/calendar";
+import { createGitHubToolsServer, GITHUB_TOOL_NAMES } from "./tools/github";
+import { parseReposJson } from "./integrations/github";
 
 export interface AgentContext {
   userId: string;
@@ -40,10 +43,22 @@ You have access to memory tools to persist information:
 When you learn something important about your owner, your tasks, or yourself,
 use set_memory to persist it. Otherwise you will forget it next message.
 
-## Current Limitations
-- You are in Phase 2.5: memory persistence via Letta is active
-- No ambient compute yet (coming soon)
-- No GitHub/Calendar integrations yet (coming soon)
+## Calendar Tools
+You have access to Google Calendar:
+- calendar_events: List upcoming events (defaults to next 7 days)
+- calendar_event_details: Get full details of a specific event
+- calendar_create_event: Create a new calendar event
+- calendar_availability: Check free/busy times
+
+## GitHub Tools
+You have access to GitHub for monitored repos:
+- github_prs: List open pull requests
+- github_issues: List open issues assigned to you
+- github_pr_details: Get details of a specific PR
+- github_notifications: Check unread notifications
+
+To manage which repos you monitor, update your github_repos memory block.
+Format: ["owner/repo1", "owner/repo2"]
 `;
 }
 
@@ -61,8 +76,14 @@ export async function invokeAgent(
     // Load memory from Letta
     const memory = await loadContext(lettaClient, config.letta.agentId);
 
-    // Create memory tools MCP server
+    // Create MCP servers
     const memoryServer = createMemoryToolsServer(lettaClient, config.letta.agentId);
+    const calendarServer = createCalendarToolsServer();
+
+    // Load GitHub repos from memory and create GitHub server
+    const reposJson = await getMemoryBlock(lettaClient, config.letta.agentId, "github_repos");
+    const githubRepos = parseReposJson(reposJson);
+    const githubServer = createGitHubToolsServer(githubRepos);
 
     const systemPrompt = buildSystemPrompt(memory);
     const prompt = `${systemPrompt}\n\n---\n\n[Message from ${context.username}]: ${userMessage}`;
@@ -76,8 +97,10 @@ export async function invokeAgent(
         permissionMode: "bypassPermissions",
         mcpServers: {
           "letta-memory": memoryServer,
+          "calendar": calendarServer,
+          "github": githubServer,
         },
-        allowedTools: MEMORY_TOOL_NAMES,
+        allowedTools: [...MEMORY_TOOL_NAMES, ...CALENDAR_TOOL_NAMES, ...GITHUB_TOOL_NAMES],
         pathToClaudeCodeExecutable: "/usr/bin/claude",
       },
     });
