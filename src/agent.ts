@@ -94,7 +94,7 @@ export async function invokeAgent(
     const githubServer = createGitHubToolsServer(githubRepos);
 
     // Load skills
-    const skills = await loadSkills("/app/state/.claude/skills");
+    const skills = await loadSkills(config.skills.path);
 
     const systemPrompt = buildSystemPrompt(memory, skills);
     const prompt = `${systemPrompt}\n\n---\n\n[Message from ${context.username}]: ${userMessage}`;

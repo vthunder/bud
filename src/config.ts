@@ -18,6 +18,9 @@ export const config = {
     serviceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON ?? "",
     calendarIds: (process.env.GOOGLE_CALENDAR_IDS ?? "").split(",").filter(Boolean),
   },
+  skills: {
+    path: process.env.SKILLS_PATH || "/app/state/.claude/skills",
+  },
 } as const;
 
 export function validateConfig(): void {
