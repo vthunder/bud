@@ -3,6 +3,7 @@ import { readLogs, type LogEntry } from "../memory/logs";
 import { loadContext, getMemoryBlock, type BudContext } from "../memory/letta";
 import { parseTasksJson, getDueTasks, type ScheduledTask } from "./tasks";
 import { checkGitHubActivity } from "./github";
+import { getCalendarContext } from "./calendar";
 
 export interface PerchContext {
   currentTime: string;
@@ -14,6 +15,7 @@ export interface PerchContext {
   dueTasks: ScheduledTask[];
   githubSummary: string;
   hasNewGitHub: boolean;
+  calendarSummary: string;
 }
 
 export interface GatherContextOptions {
@@ -51,6 +53,9 @@ export async function gatherPerchContext(
   // Check GitHub activity
   const { summary: githubSummary, hasNew: hasNewGitHub } = await checkGitHubActivity();
 
+  // Get calendar context
+  const { summary: calendarSummary } = await getCalendarContext();
+
   // Read recent journal entries
   const allLogs = await readLogs("journal.jsonl");
   const recentInteractions = allLogs.filter(
@@ -75,5 +80,6 @@ export async function gatherPerchContext(
     dueTasks,
     githubSummary,
     hasNewGitHub,
+    calendarSummary,
   };
 }
