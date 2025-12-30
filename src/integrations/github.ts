@@ -47,6 +47,17 @@ export function parseGitHubRepoList(repoString: string): string[] {
   return repoString.split(",").map((r) => r.trim()).filter(Boolean);
 }
 
+export function parseReposJson(json: string): string[] {
+  if (!json.trim()) return [];
+  try {
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is string => typeof item === "string");
+  } catch {
+    return [];
+  }
+}
+
 export function formatPRForDisplay(pr: GitHubPR): string {
   return `PR #${pr.number}: ${pr.title} (by ${pr.author.login})`;
 }
