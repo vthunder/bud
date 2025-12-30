@@ -45,6 +45,17 @@ You have new GitHub activity. Consider mentioning it.
 `
     : "";
 
+  // Build calendar section
+  const calendarSection = context.calendarSummary
+    ? `## Calendar (Next 7 Days)
+${context.calendarSummary}
+
+Use your judgment about which events warrant preparation or reminders.
+Consider: event type, attendees, time until event, your knowledge of the owner's preferences.
+
+`
+    : "";
+
   // Build tick type section
   const tickTypeSection = options.isFullTick
     ? "This is a FULL perch tick (every 2 hours) - you may speak even without due tasks if appropriate."
@@ -76,7 +87,7 @@ ${context.memory.ownerContext || "No owner context."}
 ## Tick Type
 ${tickTypeSection}
 
-${dueTasksSection}${githubSection}## Recent Interactions (last 24h)
+${dueTasksSection}${githubSection}${calendarSection}## Recent Interactions (last 24h)
 ${interactionSummary}
 
 ## Your Task
