@@ -35,6 +35,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
       userId: message.author.id,
       username: message.author.username,
       channelId: message.channelId,
+      discordClient: client,
     });
 
     if (result.response) {

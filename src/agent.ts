@@ -1,4 +1,5 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import type { Client } from "discord.js";
 import { config } from "./config";
 import { createLettaClient, loadContext, getMemoryBlock, type BudContext } from "./memory/letta";
 import { createMemoryToolsServer, MEMORY_TOOL_NAMES } from "./tools/memory";
@@ -11,6 +12,7 @@ export interface AgentContext {
   userId: string;
   username: string;
   channelId: string;
+  discordClient: Client;
 }
 
 export interface AgentResult {
