@@ -5,6 +5,7 @@ import { createLettaClient, loadContext, getMemoryBlock, type BudContext } from 
 import { createMemoryToolsServer, MEMORY_TOOL_NAMES } from "./tools/memory";
 import { createCalendarToolsServer, CALENDAR_TOOL_NAMES } from "./tools/calendar";
 import { createGitHubToolsServer, GITHUB_TOOL_NAMES } from "./tools/github";
+import { createImageToolsServer, IMAGE_TOOL_NAMES } from "./tools/images";
 import { parseReposJson } from "./integrations/github";
 import { loadSkills } from "./skills";
 
@@ -63,6 +64,13 @@ You have access to GitHub for monitored repos:
 To manage which repos you monitor, update your github_repos memory block.
 Format: ["owner/repo1", "owner/repo2"]
 
+## Image Tools
+You can generate and share images:
+- generate_image: Create AI images (default: Flux Schnell, or specify model)
+- generate_diagram: Create Mermaid diagrams (flowcharts, sequence diagrams, etc.)
+
+For diagrams, use Mermaid syntax. The URL will auto-embed in Discord.
+
 ## Self-Improvement
 You can modify your own code! You have access to Bash, Read, Write, and Edit tools.
 When you identify bugs or improvements, follow your self-improve skill.
@@ -95,6 +103,9 @@ export async function invokeAgent(
     const githubRepos = parseReposJson(reposJson);
     const githubServer = createGitHubToolsServer(githubRepos);
 
+    // Create image tools server
+    const imageServer = createImageToolsServer(context.discordClient, context.channelId);
+
     // Load skills
     const skills = await loadSkills(config.skills.path);
 
@@ -112,8 +123,9 @@ export async function invokeAgent(
           "letta-memory": memoryServer,
           "calendar": calendarServer,
           "github": githubServer,
+          "images": imageServer,
         },
-        allowedTools: [...MEMORY_TOOL_NAMES, ...CALENDAR_TOOL_NAMES, ...GITHUB_TOOL_NAMES],
+        allowedTools: [...MEMORY_TOOL_NAMES, ...CALENDAR_TOOL_NAMES, ...GITHUB_TOOL_NAMES, ...IMAGE_TOOL_NAMES],
         pathToClaudeCodeExecutable: "/usr/bin/claude",
       },
     });
