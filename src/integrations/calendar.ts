@@ -89,10 +89,10 @@ export async function listEvents(startDate: Date, endDate: Date): Promise<Calend
         calendarId,
         calendarName,
         summary: item.summary || "(No title)",
-        description: item.description,
+        description: item.description ?? undefined,
         start: item.start?.dateTime || item.start?.date || "",
         end: item.end?.dateTime || item.end?.date || "",
-        location: item.location,
+        location: item.location ?? undefined,
         attendees: item.attendees?.map((a) => a.email || "").filter(Boolean),
         isAllDay: !item.start?.dateTime,
       }));
@@ -120,10 +120,10 @@ export async function getEvent(calendarId: string, eventId: string): Promise<Cal
       calendarId,
       calendarName,
       summary: item.summary || "(No title)",
-      description: item.description,
+      description: item.description ?? undefined,
       start: item.start?.dateTime || item.start?.date || "",
       end: item.end?.dateTime || item.end?.date || "",
-      location: item.location,
+      location: item.location ?? undefined,
       attendees: item.attendees?.map((a) => a.email || "").filter(Boolean),
       isAllDay: !item.start?.dateTime,
     };
@@ -160,10 +160,10 @@ export async function createEvent(params: CreateEventParams): Promise<CalendarEv
       calendarId,
       calendarName,
       summary: item.summary || "(No title)",
-      description: item.description,
+      description: item.description ?? undefined,
       start: item.start?.dateTime || item.start?.date || "",
       end: item.end?.dateTime || item.end?.date || "",
-      location: item.location,
+      location: item.location ?? undefined,
       isAllDay: false,
     };
   } catch (error) {
