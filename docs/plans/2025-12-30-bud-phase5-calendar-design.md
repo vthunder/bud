@@ -17,13 +17,13 @@ Bud gains Google Calendar awareness with a 7-day horizon. Rather than hardcoded 
 
 **Environment variables:**
 - `GOOGLE_SERVICE_ACCOUNT_JSON` - Base64-encoded service account key file
-- `GOOGLE_CALENDAR_ID` - Calendar ID (usually your email, e.g., `user@gmail.com`)
+- `GOOGLE_CALENDAR_IDS` - Comma-separated calendar IDs (e.g., `user@gmail.com,family123@group.calendar.google.com`)
 
 **Config addition:**
 ```typescript
 calendar: {
   serviceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON ?? "",
-  calendarId: process.env.GOOGLE_CALENDAR_ID ?? "",
+  calendarIds: (process.env.GOOGLE_CALENDAR_IDS ?? "").split(",").filter(Boolean),
 }
 ```
 
@@ -55,6 +55,8 @@ Uses Google Service Account for server-to-server auth:
 ```typescript
 interface CalendarEvent {
   id: string;
+  calendarId: string;        // Which calendar this event belongs to
+  calendarName: string;      // Display name (e.g., "Family" or "Work")
   summary: string;           // Event title
   description?: string;      // Event description/notes
   start: string;            // ISO datetime
@@ -70,6 +72,7 @@ interface CreateEventParams {
   end: string;
   description?: string;
   location?: string;
+  calendarId?: string;      // Defaults to first configured calendar
 }
 
 interface BusySlot {
@@ -77,9 +80,9 @@ interface BusySlot {
   end: string;
 }
 
-// Functions
+// Functions (operate across all configured calendars)
 listEvents(startDate: Date, endDate: Date): Promise<CalendarEvent[]>
-getEvent(eventId: string): Promise<CalendarEvent | null>
+getEvent(calendarId: string, eventId: string): Promise<CalendarEvent | null>
 createEvent(event: CreateEventParams): Promise<CalendarEvent>
 getFreeBusy(startDate: Date, endDate: Date): Promise<BusySlot[]>
 ```
@@ -92,10 +95,10 @@ getFreeBusy(startDate: Date, endDate: Date): Promise<BusySlot[]>
 
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `calendar_events` | List events in date range | `start_date?`, `end_date?` (defaults to next 7 days) |
-| `calendar_event_details` | Get full details of one event | `event_id` |
-| `calendar_create_event` | Create a new event | `summary`, `start`, `end`, `description?`, `location?` |
-| `calendar_availability` | Check free/busy times | `start_date`, `end_date` |
+| `calendar_events` | List events in date range (all calendars) | `start_date?`, `end_date?` (defaults to next 7 days) |
+| `calendar_event_details` | Get full details of one event | `event_id`, `calendar_id` |
+| `calendar_create_event` | Create a new event | `summary`, `start`, `end`, `description?`, `location?`, `calendar_id?` (defaults to first) |
+| `calendar_availability` | Check free/busy times (all calendars) | `start_date`, `end_date` |
 
 ## Perch Integration
 
