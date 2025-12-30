@@ -15,6 +15,10 @@ export const config = {
     token: process.env.GITHUB_TOKEN ?? "",
     repos: (process.env.GITHUB_REPOS ?? "").split(",").filter(Boolean),
   },
+  calendar: {
+    serviceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON ?? "",
+    calendarIds: (process.env.GOOGLE_CALENDAR_IDS ?? "").split(",").filter(Boolean),
+  },
 } as const;
 
 export function validateConfig(): void {
