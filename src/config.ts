@@ -14,6 +14,9 @@ export const config = {
   github: {
     token: process.env.GITHUB_TOKEN ?? "",
   },
+  replicate: {
+    apiToken: process.env.REPLICATE_API_TOKEN ?? "",
+  },
   calendar: {
     serviceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON ?? "",
     calendarIds: (process.env.GOOGLE_CALENDAR_IDS ?? "").split(",").filter(Boolean),

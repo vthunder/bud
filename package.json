@@ -14,6 +14,7 @@
     "@letta-ai/letta-client": "^1.6.2",
     "discord.js": "^14.14.1",
     "googleapis": "^169.0.0",
+    "replicate": "^1.4.0",
     "zod": "^4.2.1"
   },
   "devDependencies": {
