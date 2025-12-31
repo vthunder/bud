@@ -6,7 +6,7 @@ export function getDailyCap(): number {
 }
 
 export function setDailyCap(amount: number): void {
-  setBlock("budget_daily_cap", amount.toFixed(2), 4);
+  setBlock("budget_daily_cap", amount.toFixed(4), 4);
 }
 
 export function getDailySpent(): number {
