@@ -1,6 +1,15 @@
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 
+export async function listSkillNames(skillsDir: string): Promise<string[]> {
+  try {
+    const files = await readdir(skillsDir);
+    return files.filter((f) => f.endsWith(".md")).map((f) => f.replace(".md", ""));
+  } catch {
+    return [];
+  }
+}
+
 export async function loadSkills(skillsDir: string): Promise<string> {
   try {
     const files = await readdir(skillsDir);
