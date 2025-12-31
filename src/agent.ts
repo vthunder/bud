@@ -1,4 +1,3 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { Client } from "discord.js";
 import { config, getDbPath, getJournalPath } from "./config";
 import { initDatabase, getBlocksByLayer } from "./memory/blocks";
@@ -11,6 +10,9 @@ import { createImageToolsServer, IMAGE_TOOL_NAMES } from "./tools/images";
 import { createSkillToolsServer, SKILL_TOOL_NAMES } from "./tools/skills";
 import { parseReposJson } from "./integrations/github";
 import { listSkillNames } from "./skills";
+import { executeWithYield } from "./execution";
+import { setState, clearPreempt } from "./state";
+import { getRemainingBudget, checkDailyReset } from "./budget";
 
 export interface AgentContext {
   userId: string;
@@ -22,6 +24,7 @@ export interface AgentContext {
 export interface AgentResult {
   response: string;
   toolsUsed: string[];
+  yielded?: boolean;
 }
 
 let initialized = false;
@@ -45,10 +48,18 @@ async function loadPromptContext(): Promise<PromptContext> {
 
 export async function invokeAgent(
   userMessage: string,
-  context: AgentContext
+  context: AgentContext,
+  sessionBudget?: number
 ): Promise<AgentResult> {
   try {
     ensureInitialized();
+    checkDailyReset("Europe/Berlin");
+    clearPreempt();
+    setState({
+      status: "working",
+      current_task: `Discord: ${userMessage.slice(0, 50)}`,
+      started_at: new Date().toISOString(),
+    });
 
     // Log trigger to journal
     await appendJournal({
@@ -82,57 +93,44 @@ export async function invokeAgent(
       from: context.username,
     });
 
-    const toolsUsed: string[] = [];
-    let responseText = "";
+    // Use session budget or remaining daily budget (max $1.00 per message)
+    const budget = sessionBudget ?? Math.min(getRemainingBudget(), 1.00);
 
-    const result = query({
+    const result = await executeWithYield({
       prompt,
-      options: {
-        permissionMode: "bypassPermissions",
-        mcpServers: {
-          memory: memoryServer,
-          calendar: calendarServer,
-          github: githubServer,
-          images: imageServer,
-          skills: skillsServer,
-        },
-        allowedTools: [...BLOCK_TOOL_NAMES, ...CALENDAR_TOOL_NAMES, ...GITHUB_TOOL_NAMES, ...IMAGE_TOOL_NAMES, ...SKILL_TOOL_NAMES],
-        pathToClaudeCodeExecutable: "/usr/bin/claude",
+      mcpServers: {
+        memory: memoryServer,
+        calendar: calendarServer,
+        github: githubServer,
+        images: imageServer,
+        skills: skillsServer,
       },
+      allowedTools: [
+        ...BLOCK_TOOL_NAMES,
+        ...CALENDAR_TOOL_NAMES,
+        ...GITHUB_TOOL_NAMES,
+        ...IMAGE_TOOL_NAMES,
+        ...SKILL_TOOL_NAMES,
+      ],
+      sessionBudget: budget,
     });
-
-    for await (const message of result) {
-      if (message.type === "assistant" && "message" in message) {
-        for (const block of message.message.content) {
-          if (block.type === "text") {
-            responseText += block.text;
-          } else if (block.type === "tool_use") {
-            toolsUsed.push(block.name);
-            // Log tool usage
-            await appendJournal({
-              type: "tool_use",
-              tool: block.name,
-            });
-          }
-        }
-      } else if (message.type === "result" && "result" in message) {
-        if (message.result) {
-          responseText = message.result;
-        }
-      }
-    }
 
     // Log response sent
     await appendJournal({
       type: "message_sent",
       to: context.username,
-      preview: responseText.slice(0, 100),
-      tools_used: toolsUsed,
+      preview: result.response.slice(0, 100),
+      tools_used: result.toolsUsed,
+      cost: result.totalCost,
+      yielded: result.yielded,
     });
 
+    setState({ status: "idle", current_task: null });
+
     return {
-      response: responseText || "I apologize, but I couldn't generate a response.",
-      toolsUsed,
+      response: result.response || "I apologize, but I couldn't generate a response.",
+      toolsUsed: result.toolsUsed,
+      yielded: result.yielded,
     };
   } catch (error) {
     console.error("[agent] Error:", error);
@@ -142,6 +140,7 @@ export async function invokeAgent(
       error: error instanceof Error ? error.message : String(error),
       context: "invokeAgent",
     });
+    setState({ status: "idle", current_task: null });
     return {
       response: "I encountered an error processing your request. Please try again.",
       toolsUsed: [],
