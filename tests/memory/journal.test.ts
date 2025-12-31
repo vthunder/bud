@@ -5,6 +5,8 @@ import {
   initJournal,
   appendJournal,
   getRecentJournal,
+  searchJournal,
+  formatJournalForPrompt,
   type JournalEntry,
 } from "../../src/memory/journal";
 
@@ -55,5 +57,27 @@ describe("journal", () => {
     const entries = await getRecentJournal(10);
     expect(entries[0].tool).toBe("set_block");
     expect(entries[0].args).toEqual({ name: "focus" });
+  });
+
+  test("searchJournal filters by predicate", async () => {
+    await appendJournal({ type: "error", message: "failed" });
+    await appendJournal({ type: "success", message: "worked" });
+    await appendJournal({ type: "error", message: "another failure" });
+    const errors = await searchJournal((e) => e.type === "error");
+    expect(errors).toHaveLength(2);
+  });
+
+  test("formatJournalForPrompt formats entries for prompt", async () => {
+    await appendJournal({ type: "test", data: "value" });
+    const entries = await getRecentJournal(10);
+    const formatted = formatJournalForPrompt(entries);
+    expect(formatted).toContain("[");
+    expect(formatted).toContain("] test:");
+    expect(formatted).toContain("data=value");
+  });
+
+  test("formatJournalForPrompt returns placeholder for empty", () => {
+    const formatted = formatJournalForPrompt([]);
+    expect(formatted).toBe("(no recent activity)");
   });
 });
