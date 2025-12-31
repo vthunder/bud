@@ -5,7 +5,6 @@ import {
   setBlock,
   getAllCurrentBlocks,
   getBlockHistory,
-  getBlocksByLayer,
 } from "../memory/blocks";
 import { appendJournal } from "../memory/journal";
 
@@ -17,14 +16,18 @@ export function createBlockToolsServer() {
       name: z.string().describe("Block name (e.g., 'persona', 'focus', 'owner_context')"),
     },
     async (args) => {
-      const value = getBlock(args.name);
-      await appendJournal({ type: "read", target: `block:${args.name}` });
-      return {
-        content: [{
-          type: "text" as const,
-          text: value ?? `(block '${args.name}' not found)`,
-        }],
-      };
+      try {
+        const value = getBlock(args.name);
+        await appendJournal({ type: "read", target: `block:${args.name}` });
+        return {
+          content: [{
+            type: "text" as const,
+            text: value ?? `(block '${args.name}' not found)`,
+          }],
+        };
+      } catch (error) {
+        return { content: [{ type: "text" as const, text: `Error: ${error}` }] };
+      }
     }
   );
 
@@ -37,28 +40,32 @@ export function createBlockToolsServer() {
       layer: z.number().optional().describe("Layer: 2=identity, 3=semantic, 4=working (default)"),
     },
     async (args) => {
-      const layer = args.layer ?? 4;
-      if (layer === 2) {
+      try {
+        const layer = args.layer ?? 4;
+        if (layer === 2) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: "Cannot modify identity blocks (layer 2). These require owner approval.",
+            }],
+          };
+        }
+        setBlock(args.name, args.value, layer);
+        await appendJournal({
+          type: "block_update",
+          block: args.name,
+          layer,
+          preview: args.value.slice(0, 100),
+        });
         return {
           content: [{
             type: "text" as const,
-            text: "Cannot modify identity blocks (layer 2). These require owner approval.",
+            text: `Updated block '${args.name}'`,
           }],
         };
+      } catch (error) {
+        return { content: [{ type: "text" as const, text: `Error: ${error}` }] };
       }
-      setBlock(args.name, args.value, layer);
-      await appendJournal({
-        type: "block_update",
-        block: args.name,
-        layer,
-        preview: args.value.slice(0, 100),
-      });
-      return {
-        content: [{
-          type: "text" as const,
-          text: `Updated block '${args.name}'`,
-        }],
-      };
     }
   );
 
@@ -67,16 +74,20 @@ export function createBlockToolsServer() {
     "List all memory blocks with their current values",
     {},
     async () => {
-      const blocks = getAllCurrentBlocks();
-      const list = Object.entries(blocks)
-        .map(([name, value]) => `${name}: ${value.slice(0, 100)}${value.length > 100 ? "..." : ""}`)
-        .join("\n");
-      return {
-        content: [{
-          type: "text" as const,
-          text: list || "(no blocks)",
-        }],
-      };
+      try {
+        const blocks = getAllCurrentBlocks();
+        const list = Object.entries(blocks)
+          .map(([name, value]) => `${name}: ${value.slice(0, 100)}${value.length > 100 ? "..." : ""}`)
+          .join("\n");
+        return {
+          content: [{
+            type: "text" as const,
+            text: list || "(no blocks)",
+          }],
+        };
+      } catch (error) {
+        return { content: [{ type: "text" as const, text: `Error: ${error}` }] };
+      }
     }
   );
 
@@ -88,17 +99,21 @@ export function createBlockToolsServer() {
       limit: z.number().optional().describe("Max versions to return (default 10)"),
     },
     async (args) => {
-      const history = getBlockHistory(args.name);
-      const limited = history.slice(-(args.limit ?? 10));
-      const formatted = limited
-        .map((h) => `[${h.created_at}] ${h.value.slice(0, 80)}${h.value.length > 80 ? "..." : ""}`)
-        .join("\n");
-      return {
-        content: [{
-          type: "text" as const,
-          text: formatted || `(no history for '${args.name}')`,
-        }],
-      };
+      try {
+        const history = getBlockHistory(args.name);
+        const limited = history.slice(-(args.limit ?? 10));
+        const formatted = limited
+          .map((h) => `[${h.created_at}] ${h.value.slice(0, 80)}${h.value.length > 80 ? "..." : ""}`)
+          .join("\n");
+        return {
+          content: [{
+            type: "text" as const,
+            text: formatted || `(no history for '${args.name}')`,
+          }],
+        };
+      } catch (error) {
+        return { content: [{ type: "text" as const, text: `Error: ${error}` }] };
+      }
     }
   );
 
