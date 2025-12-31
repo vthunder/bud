@@ -46,8 +46,8 @@ export async function executeWithYield(options: ExecutionOptions): Promise<Execu
 
     for await (const message of result) {
       // Track cost from result messages
-      if (message.type === "result" && "total_cost_usd" in message) {
-        const cost = message.total_cost_usd as number;
+      if (message.type === "result" && typeof (message as any).total_cost_usd === "number") {
+        const cost = (message as any).total_cost_usd;
         totalCost = cost;
         trackCost(cost);
         setState({ session_spent: cost });
@@ -98,10 +98,8 @@ export async function executeWithYield(options: ExecutionOptions): Promise<Execu
         }
 
         if (yielded) break;
-      } else if (message.type === "result" && "result" in message) {
-        if (message.result) {
-          responseText = message.result;
-        }
+      } else if (message.type === "result" && typeof (message as any).result === "string") {
+        responseText = (message as any).result;
       }
     }
   } catch (error) {
