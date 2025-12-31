@@ -8,6 +8,7 @@ import { createBlockToolsServer, BLOCK_TOOL_NAMES } from "./tools/blocks";
 import { createCalendarToolsServer, CALENDAR_TOOL_NAMES } from "./tools/calendar";
 import { createGitHubToolsServer, GITHUB_TOOL_NAMES } from "./tools/github";
 import { createImageToolsServer, IMAGE_TOOL_NAMES } from "./tools/images";
+import { createSkillToolsServer, SKILL_TOOL_NAMES } from "./tools/skills";
 import { parseReposJson } from "./integrations/github";
 import { listSkillNames } from "./skills";
 
@@ -72,6 +73,9 @@ export async function invokeAgent(
     // Create image tools server
     const imageServer = createImageToolsServer(context.discordClient, context.channelId);
 
+    // Create skills tools server
+    const skillsServer = createSkillToolsServer();
+
     const prompt = buildFullPrompt(promptContext, {
       type: "message",
       content: userMessage,
@@ -90,8 +94,9 @@ export async function invokeAgent(
           calendar: calendarServer,
           github: githubServer,
           images: imageServer,
+          skills: skillsServer,
         },
-        allowedTools: [...BLOCK_TOOL_NAMES, ...CALENDAR_TOOL_NAMES, ...GITHUB_TOOL_NAMES, ...IMAGE_TOOL_NAMES],
+        allowedTools: [...BLOCK_TOOL_NAMES, ...CALENDAR_TOOL_NAMES, ...GITHUB_TOOL_NAMES, ...IMAGE_TOOL_NAMES, ...SKILL_TOOL_NAMES],
         pathToClaudeCodeExecutable: "/usr/bin/claude",
       },
     });

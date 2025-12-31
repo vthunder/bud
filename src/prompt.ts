@@ -53,7 +53,7 @@ Update memory when you learn something important. Blocks by layer:
 
 ${skills.length > 0 ? skills.map(s => `- ${s}`).join("\n") : "(no skills loaded)"}
 
-Skills are loaded on-demand. Invoke by name when capability is needed.
+Use **invoke_skill** to load a skill's full instructions before following it.
 
 ## Recent Activity
 
