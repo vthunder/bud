@@ -1,9 +1,15 @@
 import { Client, Events, GatewayIntentBits, Message } from "discord.js";
-import { config, validateConfig } from "./config";
+import { config, validateConfig, getDbPath, getJournalPath } from "./config";
 import { invokeAgent } from "./agent";
 import { appendLog } from "./memory/logs";
+import { initDatabase } from "./memory/blocks";
+import { initJournal } from "./memory/journal";
 
 validateConfig();
+
+// Initialize memory at startup
+initDatabase(getDbPath());
+initJournal(getJournalPath());
 
 const client = new Client({
   intents: [

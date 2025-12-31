@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { appendLog, readLogs, LogEntry } from "../../src/memory/logs";
+import { appendLog, readLogs, type LogEntry } from "../../src/memory/logs";
 import { mkdir, rm, readFile } from "fs/promises";
 import { existsSync } from "fs";
 
