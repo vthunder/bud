@@ -91,23 +91,28 @@ export function markTaskComplete(taskId: string): CancelTaskResult {
 
     const taskIndex = tasks.findIndex((t) => t.id === taskId);
     if (taskIndex === -1) {
+      console.log(`[tasks] markTaskComplete: task ${taskId} not found`);
       return { success: false, error: `Task ${taskId} not found` };
     }
 
     const task = tasks[taskIndex];
+    console.log(`[tasks] markTaskComplete: ${task.description} (recurring: ${task.recurring ?? "no"})`);
 
     if (task.recurring) {
       const nextTask = advanceRecurringTask(task);
       if (nextTask) {
+        console.log(`[tasks] Advanced recurring task to: ${nextTask.dueAt}`);
         tasks[taskIndex] = nextTask;
       }
     } else {
+      console.log(`[tasks] Removing one-time task`);
       tasks.splice(taskIndex, 1);
     }
 
     setBlock(TASKS_BLOCK, serializeTasksJson(tasks));
     return { success: true };
   } catch (error) {
+    console.error(`[tasks] markTaskComplete error:`, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),

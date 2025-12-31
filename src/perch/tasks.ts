@@ -66,23 +66,24 @@ export function removeTask(tasks: ScheduledTask[], taskId: string): ScheduledTas
   return tasks.filter((t) => t.id !== taskId);
 }
 
-export function advanceRecurringTask(task: ScheduledTask): ScheduledTask | null {
+export function advanceRecurringTask(task: ScheduledTask, now: Date = new Date()): ScheduledTask | null {
   if (!task.recurring) {
     return null;
   }
 
-  const dueDate = new Date(task.dueAt);
+  // Advance from NOW, not from the old dueAt
+  // This prevents tasks from being immediately due again if dueAt was in the past
   let nextDue: Date;
 
   switch (task.recurring) {
     case "daily":
-      nextDue = new Date(dueDate.getTime() + 24 * 60 * 60 * 1000);
+      nextDue = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       break;
     case "weekly":
-      nextDue = new Date(dueDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+      nextDue = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
       break;
     case "monthly":
-      nextDue = new Date(dueDate);
+      nextDue = new Date(now);
       nextDue.setMonth(nextDue.getMonth() + 1);
       break;
   }
