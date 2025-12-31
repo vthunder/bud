@@ -26,10 +26,10 @@ export async function appendJournal(
     await mkdir(dir, { recursive: true });
   }
 
-  const entry: JournalEntry = {
+  const entry = {
     ts: new Date().toISOString(),
     ...event,
-  };
+  } as JournalEntry;
 
   const line = JSON.stringify(entry) + "\n";
   await appendFile(journalPath, line, "utf-8");
