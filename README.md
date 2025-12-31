@@ -114,11 +114,9 @@ state/               # Runtime state (separate repo)
 └── .claude/skills/  # Skill definitions
 ```
 
-## Interesting Design Choices
+## Notable Design Choices
 
 **Yield-based preemption** - The agent checks `shouldYield()` before each tool call. If a user message arrived or budget is exhausted, it wraps up gracefully instead of being killed mid-task.
-
-**Berlin timezone budget reset** - Daily budget resets at midnight Berlin time (owner's timezone), not UTC.
 
 **Append-only everything** - Memory blocks and journal are insert-only. "Latest version wins" for display, but all history is preserved and recoverable.
 
@@ -136,4 +134,6 @@ state/               # Runtime state (separate repo)
 
 ## License
 
-MIT
+All source code here is available under the [MPL 2.0][] license, unless otherwise indicated.
+
+[MPL 2.0]: https://mozilla.org/MPL/2.0/
