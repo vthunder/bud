@@ -1,8 +1,14 @@
 import { Database } from "bun:sqlite";
+import { mkdirSync, existsSync } from "fs";
+import { dirname } from "path";
 
 let db: Database | null = null;
 
 export function initDatabase(dbPath: string): void {
+  const dir = dirname(dbPath);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
   db = new Database(dbPath);
 
   db.exec(`
