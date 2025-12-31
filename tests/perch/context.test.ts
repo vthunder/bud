@@ -22,6 +22,7 @@ const mockReadLogs = mock(() => Promise.resolve([]));
 
 mock.module("../../src/memory/logs", () => ({
   readLogs: mockReadLogs,
+  appendLog: mock(() => Promise.resolve()),
 }));
 
 const mockGetBlock = mock((name: string) => {
@@ -38,6 +39,13 @@ const mockGetBlock = mock((name: string) => {
 
 mock.module("../../src/memory/blocks", () => ({
   getBlock: mockGetBlock,
+  setBlock: mock(() => {}),
+  initDatabase: mock(() => {}),
+  closeDatabase: mock(() => {}),
+  getAllCurrentBlocks: mock(() => ({})),
+  getBlockHistory: mock(() => []),
+  getBlocksByLayer: mock(() => ({})),
+  getDatabase: mock(() => ({})),
 }));
 
 // Now import the module being tested
