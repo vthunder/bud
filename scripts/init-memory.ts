@@ -24,6 +24,22 @@ I am proactive, resilient, and cost-aware.`,
   goals: "(No active goals.)",
   schedule: "(No schedule.)",
   github_repos: "[]",
+
+  // Budget
+  budget_daily_cap: "5.00",
+  budget_daily_spent: "0.00",
+  budget_last_reset: new Date().toISOString().split("T")[0],
+
+  // State
+  bud_state: JSON.stringify({
+    status: "idle",
+    current_task: null,
+    started_at: null,
+    session_budget: 0,
+    session_spent: 0,
+    preempt_requested: false,
+    preempt_reason: null,
+  }),
 };
 
 async function main() {
@@ -38,7 +54,9 @@ async function main() {
     const existing = getBlock(name);
     if (existing === null) {
       const layer = name === "persona" || name === "values" ? 2 :
-                    name === "owner_context" || name === "patterns" ? 3 : 4;
+                    name === "owner_context" || name === "patterns" ? 3 :
+                    name === "focus" || name === "goals" || name === "schedule" || name === "github_repos" ? 4 :
+                    name === "budget_daily_cap" || name === "budget_daily_spent" || name === "budget_last_reset" || name === "bud_state" ? 5 : 4;
       setBlock(name, value, layer);
       console.log(`Created block: ${name} (layer ${layer})`);
     } else {
