@@ -6,10 +6,10 @@ export const config = {
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY ?? "",
   },
-  letta: {
-    baseUrl: process.env.LETTA_API_URL ?? "https://api.letta.com",
-    apiKey: process.env.LETTA_API_KEY ?? "",
-    agentId: process.env.LETTA_AGENT_ID ?? "",
+  state: {
+    path: process.env.STATE_PATH ?? "/app/state",
+    dbName: "memory.db",
+    journalName: "journal.jsonl",
   },
   github: {
     token: process.env.GITHUB_TOKEN ?? "",
@@ -26,13 +26,19 @@ export const config = {
   },
 } as const;
 
+export function getDbPath(): string {
+  return `${config.state.path}/${config.state.dbName}`;
+}
+
+export function getJournalPath(): string {
+  return `${config.state.path}/${config.state.journalName}`;
+}
+
 export function validateConfig(): void {
   const required = [
     ["DISCORD_TOKEN", config.discord.token],
     ["DISCORD_CHANNEL_ID", config.discord.channelId],
     ["ANTHROPIC_API_KEY", config.anthropic.apiKey],
-    ["LETTA_API_KEY", config.letta.apiKey],
-    ["LETTA_AGENT_ID", config.letta.agentId],
   ] as const;
 
   const missing = required.filter(([, value]) => !value).map(([name]) => name);
