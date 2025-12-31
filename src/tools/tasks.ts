@@ -1,5 +1,4 @@
-import type Letta from "@letta-ai/letta-client";
-import { getMemoryBlock, setMemoryBlock } from "../memory/letta";
+import { getBlock, setBlock } from "../memory/blocks";
 import {
   type ScheduledTask,
   parseTasksJson,
@@ -26,16 +25,14 @@ export interface ListTasksResult {
   tasks: ScheduledTask[];
 }
 
-export async function scheduleTask(
-  client: Letta,
-  agentId: string,
+export function scheduleTask(
   description: string,
   dueAt: string,
   recurring?: "daily" | "weekly" | "monthly",
   context?: string
-): Promise<ScheduleTaskResult> {
+): ScheduleTaskResult {
   try {
-    const json = await getMemoryBlock(client, agentId, TASKS_BLOCK);
+    const json = getBlock(TASKS_BLOCK) ?? "[]";
     const tasks = parseTasksJson(json);
 
     const task = createTask(description, dueAt, recurring);
@@ -44,7 +41,7 @@ export async function scheduleTask(
     }
 
     tasks.push(task);
-    await setMemoryBlock(client, agentId, TASKS_BLOCK, serializeTasksJson(tasks));
+    setBlock(TASKS_BLOCK, serializeTasksJson(tasks));
 
     return { success: true, task };
   } catch (error) {
@@ -55,13 +52,9 @@ export async function scheduleTask(
   }
 }
 
-export async function cancelTask(
-  client: Letta,
-  agentId: string,
-  taskId: string
-): Promise<CancelTaskResult> {
+export function cancelTask(taskId: string): CancelTaskResult {
   try {
-    const json = await getMemoryBlock(client, agentId, TASKS_BLOCK);
+    const json = getBlock(TASKS_BLOCK) ?? "[]";
     const tasks = parseTasksJson(json);
 
     const taskExists = tasks.some((t) => t.id === taskId);
@@ -70,7 +63,7 @@ export async function cancelTask(
     }
 
     const updated = removeTask(tasks, taskId);
-    await setMemoryBlock(client, agentId, TASKS_BLOCK, serializeTasksJson(updated));
+    setBlock(TASKS_BLOCK, serializeTasksJson(updated));
 
     return { success: true };
   } catch (error) {
@@ -81,12 +74,9 @@ export async function cancelTask(
   }
 }
 
-export async function listScheduledTasks(
-  client: Letta,
-  agentId: string
-): Promise<ListTasksResult> {
+export function listScheduledTasks(): ListTasksResult {
   try {
-    const json = await getMemoryBlock(client, agentId, TASKS_BLOCK);
+    const json = getBlock(TASKS_BLOCK) ?? "[]";
     const tasks = parseTasksJson(json);
     return { tasks };
   } catch {
@@ -94,13 +84,9 @@ export async function listScheduledTasks(
   }
 }
 
-export async function markTaskComplete(
-  client: Letta,
-  agentId: string,
-  taskId: string
-): Promise<CancelTaskResult> {
+export function markTaskComplete(taskId: string): CancelTaskResult {
   try {
-    const json = await getMemoryBlock(client, agentId, TASKS_BLOCK);
+    const json = getBlock(TASKS_BLOCK) ?? "[]";
     const tasks = parseTasksJson(json);
 
     const taskIndex = tasks.findIndex((t) => t.id === taskId);
@@ -119,7 +105,7 @@ export async function markTaskComplete(
       tasks.splice(taskIndex, 1);
     }
 
-    await setMemoryBlock(client, agentId, TASKS_BLOCK, serializeTasksJson(tasks));
+    setBlock(TASKS_BLOCK, serializeTasksJson(tasks));
     return { success: true };
   } catch (error) {
     return {

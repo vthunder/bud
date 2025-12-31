@@ -1,14 +1,13 @@
 import { tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
-import type Letta from "@letta-ai/letta-client";
-import { getMemoryBlock, setMemoryBlock } from "../memory/letta";
+import { getBlock, setBlock } from "../memory/blocks";
 import {
   scheduleTask,
   cancelTask,
   listScheduledTasks,
 } from "./tasks";
 
-export function createMemoryToolsServer(client: Letta, agentId: string) {
+export function createMemoryToolsServer() {
   const getMemoryTool = tool(
     "get_memory",
     "Retrieve a memory block by label. Available blocks: persona, current_focus, owner_context, timezone, patterns, limitations",
@@ -17,7 +16,7 @@ export function createMemoryToolsServer(client: Letta, agentId: string) {
     },
     async (args) => {
       try {
-        const value = await getMemoryBlock(client, agentId, args.label);
+        const value = getBlock(args.label);
         return {
           content: [
             {
@@ -48,7 +47,7 @@ export function createMemoryToolsServer(client: Letta, agentId: string) {
     },
     async (args) => {
       try {
-        await setMemoryBlock(client, agentId, args.label, args.value);
+        setBlock(args.label, args.value);
         return {
           content: [
             {
@@ -104,9 +103,7 @@ export function createMemoryToolsServer(client: Letta, agentId: string) {
       context: z.string().optional().describe("Additional context for when the task triggers"),
     },
     async (args) => {
-      const result = await scheduleTask(
-        client,
-        agentId,
+      const result = scheduleTask(
         args.description,
         args.due_at,
         args.recurring,
@@ -131,7 +128,7 @@ export function createMemoryToolsServer(client: Letta, agentId: string) {
       task_id: z.string().describe("The task ID to cancel"),
     },
     async (args) => {
-      const result = await cancelTask(client, agentId, args.task_id);
+      const result = cancelTask(args.task_id);
       if (result.success) {
         return { content: [{ type: "text" as const, text: "Task cancelled" }] };
       }
@@ -144,7 +141,7 @@ export function createMemoryToolsServer(client: Letta, agentId: string) {
     "List all scheduled tasks and reminders",
     {},
     async () => {
-      const result = await listScheduledTasks(client, agentId);
+      const result = listScheduledTasks();
       if (result.tasks.length === 0) {
         return { content: [{ type: "text" as const, text: "No scheduled tasks" }] };
       }
@@ -156,7 +153,7 @@ export function createMemoryToolsServer(client: Letta, agentId: string) {
   );
 
   return createSdkMcpServer({
-    name: "letta-memory",
+    name: "bud-memory",
     version: "1.0.0",
     tools: [
       getMemoryTool,
@@ -170,10 +167,10 @@ export function createMemoryToolsServer(client: Letta, agentId: string) {
 }
 
 export const MEMORY_TOOL_NAMES = [
-  "mcp__letta-memory__get_memory",
-  "mcp__letta-memory__set_memory",
-  "mcp__letta-memory__list_memory",
-  "mcp__letta-memory__schedule_task",
-  "mcp__letta-memory__cancel_task",
-  "mcp__letta-memory__list_tasks",
+  "mcp__bud-memory__get_memory",
+  "mcp__bud-memory__set_memory",
+  "mcp__bud-memory__list_memory",
+  "mcp__bud-memory__schedule_task",
+  "mcp__bud-memory__cancel_task",
+  "mcp__bud-memory__list_tasks",
 ];

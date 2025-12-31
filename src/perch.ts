@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-import { config, validateConfig } from "./config";
-import { createLettaClient } from "./memory/letta";
+import { config, validateConfig, getDbPath } from "./config";
+import { initDatabase } from "./memory/blocks";
 import { gatherPerchContext } from "./perch/context";
 import { decidePerchAction } from "./perch/decide";
 import { sendMessage } from "./discord/sender";
@@ -27,17 +27,12 @@ async function main() {
     process.exit(1);
   }
 
-  const lettaClient = createLettaClient({
-    baseURL: config.letta.baseUrl,
-    apiKey: config.letta.apiKey,
-  });
+  // Initialize SQLite database
+  initDatabase(getDbPath());
 
   // Gather context (includes due tasks check)
   console.log("[perch] Gathering context...");
-  const context = await gatherPerchContext({
-    lettaClient,
-    agentId: config.letta.agentId,
-  });
+  const context = await gatherPerchContext();
 
   const hasDueTasks = context.dueTasks.length > 0;
   const isFullTick = isFullPerchTick(now);
@@ -76,7 +71,7 @@ async function main() {
 
     // Mark due tasks as complete even if silent (they were processed)
     for (const task of context.dueTasks) {
-      await markTaskComplete(lettaClient, config.letta.agentId, task.id);
+      markTaskComplete(task.id);
     }
     return;
   }
@@ -108,7 +103,7 @@ async function main() {
 
     // Mark due tasks as complete
     for (const task of context.dueTasks) {
-      await markTaskComplete(lettaClient, config.letta.agentId, task.id);
+      markTaskComplete(task.id);
     }
   } else {
     console.error(`[perch] Failed to send message: ${result.error}`);

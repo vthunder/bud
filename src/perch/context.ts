@@ -1,10 +1,16 @@
-import type Letta from "@letta-ai/letta-client";
 import { readLogs, type LogEntry } from "../memory/logs";
-import { loadContext, getMemoryBlock, type BudContext } from "../memory/letta";
+import { getBlock } from "../memory/blocks";
 import { parseTasksJson, getDueTasks, type ScheduledTask } from "./tasks";
 import { checkGitHubActivity } from "./github";
 import { parseReposJson } from "../integrations/github";
 import { getCalendarContext } from "./calendar";
+
+export interface BudContext {
+  persona: string;
+  currentFocus: string;
+  ownerContext: string;
+  timezone: string;
+}
 
 export interface PerchContext {
   currentTime: string;
@@ -20,8 +26,6 @@ export interface PerchContext {
 }
 
 export interface GatherContextOptions {
-  lettaClient: Letta;
-  agentId: string;
   now?: Date;
   lookbackHours?: number;
 }
@@ -36,23 +40,32 @@ const DAYS = [
   "Saturday",
 ];
 
+function loadContext(): BudContext {
+  return {
+    persona: getBlock("persona") ?? "",
+    currentFocus: getBlock("current_focus") ?? "",
+    ownerContext: getBlock("owner_context") ?? "",
+    timezone: getBlock("timezone") ?? "",
+  };
+}
+
 export async function gatherPerchContext(
-  options: GatherContextOptions
+  options: GatherContextOptions = {}
 ): Promise<PerchContext> {
   const now = options.now ?? new Date();
   const lookbackHours = options.lookbackHours ?? 24;
   const cutoff = new Date(now.getTime() - lookbackHours * 60 * 60 * 1000);
 
-  // Load Letta memory
-  const memory = await loadContext(options.lettaClient, options.agentId);
+  // Load memory from SQLite
+  const memory = loadContext();
 
   // Load and check scheduled tasks
-  const tasksJson = await getMemoryBlock(options.lettaClient, options.agentId, "scheduled_tasks");
+  const tasksJson = getBlock("scheduled_tasks") ?? "[]";
   const allTasks = parseTasksJson(tasksJson);
   const dueTasks = getDueTasks(allTasks, now);
 
   // Load GitHub repos from memory
-  const reposJson = await getMemoryBlock(options.lettaClient, options.agentId, "github_repos");
+  const reposJson = getBlock("github_repos") ?? "[]";
   const githubRepos = parseReposJson(reposJson);
 
   // Check GitHub activity

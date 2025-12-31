@@ -7,11 +7,10 @@
     "start": "bun run src/bot.ts",
     "perch": "bun run src/perch.ts",
     "typecheck": "tsc --noEmit",
-    "test": "for f in tests/perch/tasks.test.ts tests/memory/logs.test.ts tests/memory/letta.test.ts tests/perch/context.test.ts tests/perch/decide.test.ts tests/tools/tasks.test.ts; do bun test $f || exit 1; done"
+    "test": "for f in tests/perch/tasks.test.ts tests/memory/logs.test.ts tests/perch/context.test.ts tests/perch/decide.test.ts tests/tools/tasks.test.ts; do bun test $f || exit 1; done"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.76",
-    "@letta-ai/letta-client": "^1.6.2",
     "better-sqlite3": "^12.5.0",
     "discord.js": "^14.14.1",
     "googleapis": "^169.0.0",

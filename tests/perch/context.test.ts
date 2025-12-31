@@ -19,25 +19,25 @@ mock.module("../../src/perch/calendar", () => ({
 
 // Mock dependencies
 const mockReadLogs = mock(() => Promise.resolve([]));
-const mockLoadContext = mock(() =>
-  Promise.resolve({
-    persona: "Test persona",
-    currentFocus: "Test focus",
-    ownerContext: "Test owner",
-    timezone: "UTC",
-  })
-);
 
 mock.module("../../src/memory/logs", () => ({
   readLogs: mockReadLogs,
 }));
 
-const mockGetMemoryBlock = mock(() => Promise.resolve("[]"));
+const mockGetBlock = mock((name: string) => {
+  switch (name) {
+    case "persona": return "Test persona";
+    case "current_focus": return "Test focus";
+    case "owner_context": return "Test owner";
+    case "timezone": return "UTC";
+    case "scheduled_tasks": return "[]";
+    case "github_repos": return "[]";
+    default: return null;
+  }
+});
 
-mock.module("../../src/memory/letta", () => ({
-  loadContext: mockLoadContext,
-  createLettaClient: () => ({}),
-  getMemoryBlock: mockGetMemoryBlock,
+mock.module("../../src/memory/blocks", () => ({
+  getBlock: mockGetBlock,
 }));
 
 // Now import the module being tested
@@ -46,9 +46,18 @@ const { gatherPerchContext } = await import("../../src/perch/context");
 describe("gatherPerchContext", () => {
   beforeEach(() => {
     mockReadLogs.mockClear();
-    mockLoadContext.mockClear();
-    mockGetMemoryBlock.mockClear();
-    mockGetMemoryBlock.mockResolvedValue("[]");
+    mockGetBlock.mockClear();
+    mockGetBlock.mockImplementation((name: string) => {
+      switch (name) {
+        case "persona": return "Test persona";
+        case "current_focus": return "Test focus";
+        case "owner_context": return "Test owner";
+        case "timezone": return "UTC";
+        case "scheduled_tasks": return "[]";
+        case "github_repos": return "[]";
+        default: return null;
+      }
+    });
     mockCheckGitHubActivity.mockClear();
     mockCheckGitHubActivity.mockResolvedValue({ activity: {}, summary: "", hasNew: false });
     mockGetCalendarContext.mockClear();
@@ -66,8 +75,6 @@ describe("gatherPerchContext", () => {
     ]);
 
     const context = await gatherPerchContext({
-      lettaClient: {} as any,
-      agentId: "agent-123",
       now,
     });
 
@@ -87,8 +94,6 @@ describe("gatherPerchContext", () => {
     mockReadLogs.mockResolvedValueOnce([]);
 
     const context = await gatherPerchContext({
-      lettaClient: {} as any,
-      agentId: "agent-123",
       now: new Date(),
     });
 

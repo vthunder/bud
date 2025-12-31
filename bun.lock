@@ -6,7 +6,6 @@
       "name": "bud",
       "dependencies": {
         "@anthropic-ai/claude-agent-sdk": "^0.1.76",
-        "@letta-ai/letta-client": "^1.6.2",
         "better-sqlite3": "^12.5.0",
         "discord.js": "^14.14.1",
         "googleapis": "^169.0.0",
@@ -66,8 +65,6 @@
     "@img/sharp-win32-x64": ["@img/sharp-win32-x64@0.33.5", "", { "os": "win32", "cpu": "x64" }, "sha512-MpY/o8/8kj+EcnxwvrP4aTJSWw/aZ7JIGR4aBeZkZw5B7/Jn+tY9/VNwtcoGmdT7GfggGIU4kygOMSbYnOrAbg=="],
 
     "@isaacs/cliui": ["@isaacs/cliui@8.0.2", "", { "dependencies": { "string-width": "^5.1.2", "string-width-cjs": "npm:string-width@^4.2.0", "strip-ansi": "^7.0.1", "strip-ansi-cjs": "npm:strip-ansi@^6.0.1", "wrap-ansi": "^8.1.0", "wrap-ansi-cjs": "npm:wrap-ansi@^7.0.0" } }, "sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA=="],
-
-    "@letta-ai/letta-client": ["@letta-ai/letta-client@1.6.2", "", {}, "sha512-nd6xSfAjSsLp5n+Ju0ppRPGNiZ49CHmWoUpMpZdanALxr/jGdBg/1+9ecmnTZlNsL2Mad4platA5CPo1fhKsXg=="],
 
     "@pkgjs/parseargs": ["@pkgjs/parseargs@0.11.0", "", {}, "sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg=="],
 
