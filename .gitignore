@@ -3,7 +3,6 @@ dist/
 .env
 *.log
 .DS_Store
-.beads/
 .claude/
 
 # Local env
