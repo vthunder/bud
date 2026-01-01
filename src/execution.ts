@@ -97,7 +97,14 @@ export async function executeWithYield(options: ExecutionOptions): Promise<Execu
             const now = Date.now();
             const elapsed = now - lastToolTime;
             toolTimings.push({ tool: block.name, elapsed });
-            console.log(`[execution] Tool: ${block.name} (${elapsed}ms since last)`);
+
+            // Log tool with input for debugging (truncated for Bash)
+            if (block.name === "Bash" && block.input && typeof block.input === "object" && "command" in block.input) {
+              const cmd = String(block.input.command).slice(0, 100);
+              console.log(`[execution] Tool: ${block.name} "${cmd}" (${elapsed}ms since last)`);
+            } else {
+              console.log(`[execution] Tool: ${block.name} (${elapsed}ms since last)`);
+            }
             lastToolTime = now;
 
             toolsUsed.push(block.name);

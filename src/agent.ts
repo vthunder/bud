@@ -24,20 +24,22 @@ const BEADS_SERVER: McpStdioServerConfig = {
   },
 };
 
-// Beads tool names (mcp__<server>__<tool>)
+// Beads tool names (mcp__<server>__<tool>) - must match actual beads-mcp tool names
 export const BEADS_TOOL_NAMES = [
-  "mcp__beads__set_context",
-  "mcp__beads__init",
-  "mcp__beads__create",
+  "mcp__beads__discover_tools",
+  "mcp__beads__get_tool_info",
+  "mcp__beads__context",
+  "mcp__beads__ready",
   "mcp__beads__list",
   "mcp__beads__show",
+  "mcp__beads__create",
   "mcp__beads__update",
   "mcp__beads__close",
   "mcp__beads__reopen",
-  "mcp__beads__ready",
-  "mcp__beads__blocked",
   "mcp__beads__dep",
   "mcp__beads__stats",
+  "mcp__beads__blocked",
+  "mcp__beads__admin",
 ];
 
 export interface AgentContext {
