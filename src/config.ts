@@ -24,6 +24,9 @@ export const config = {
   skills: {
     path: process.env.SKILLS_PATH || "/app/state/.claude/skills",
   },
+  projects: {
+    path: process.env.PROJECTS_PATH || "/app/state/projects",
+  },
 } as const;
 
 export function getDbPath(): string {
@@ -32,6 +35,10 @@ export function getDbPath(): string {
 
 export function getJournalPath(): string {
   return `${config.state.path}/${config.state.journalName}`;
+}
+
+export function getProjectsPath(): string {
+  return config.projects.path;
 }
 
 export function validateConfig(): void {
