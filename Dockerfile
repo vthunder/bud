@@ -29,8 +29,13 @@ USER bud
 
 # Set home directory for Claude CLI config
 ENV HOME=/app
-# Set beads path to the npm-installed binary
-ENV BEADS_PATH=/app/node_modules/@beads/bd/bin/bd
+ENV PATH="/app/.local/bin:${PATH}"
+
+# Install bd CLI for beads
+RUN curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/install.sh | bash
+
+# Set beads path to the installed binary
+ENV BEADS_PATH=/app/.local/bin/bd
 RUN mkdir -p /app/.claude
 
 # Install dependencies

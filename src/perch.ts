@@ -25,7 +25,8 @@ const BEADS_SERVER: McpStdioServerConfig = {
   type: "stdio",
   command: "beads-mcp",
   env: {
-    BEADS_PATH: process.env.BEADS_PATH || "/app/node_modules/@beads/bd/bin/bd",
+    BEADS_PATH: process.env.BEADS_PATH || "/app/.local/bin/bd",
+    BEADS_USE_DAEMON: "0", // Use CLI mode to avoid daemon connection issues
   },
 };
 
