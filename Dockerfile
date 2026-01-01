@@ -32,7 +32,7 @@ ENV HOME=/app
 ENV PATH="/app/.local/bin:${PATH}"
 
 # Install bd CLI for beads
-RUN curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/install.sh | bash
+RUN curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
 
 # Set beads path to the installed binary
 ENV BEADS_PATH=/app/.local/bin/bd
