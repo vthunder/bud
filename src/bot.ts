@@ -75,10 +75,22 @@ client.on(Events.MessageCreate, async (message: Message) => {
   const timestamp = new Date().toISOString();
   console.log(`[bud] ${timestamp} Message from ${message.author.username}: ${message.content}`);
 
+  // Set up continuous typing indicator
+  let typingInterval: ReturnType<typeof setInterval> | null = null;
+
   try {
-    // Show typing indicator
+    // Start typing indicator and keep it refreshed
     if ("sendTyping" in message.channel) {
       await message.channel.sendTyping();
+      typingInterval = setInterval(async () => {
+        try {
+          if ("sendTyping" in message.channel) {
+            await message.channel.sendTyping();
+          }
+        } catch (error) {
+          console.error("[bot] Failed to refresh typing:", error);
+        }
+      }, 8000);
     }
 
     const result = await invokeAgent(message.content, {
@@ -87,6 +99,12 @@ client.on(Events.MessageCreate, async (message: Message) => {
       channelId: message.channelId,
       discordClient: client,
     });
+
+    // Stop typing before sending reply
+    if (typingInterval) {
+      clearInterval(typingInterval);
+      typingInterval = null;
+    }
 
     if (result.response) {
       await message.reply(result.response);
@@ -105,6 +123,12 @@ client.on(Events.MessageCreate, async (message: Message) => {
       console.error("[bud] Failed to log interaction:", logError);
     }
   } catch (error) {
+    // Stop typing on error
+    if (typingInterval) {
+      clearInterval(typingInterval);
+      typingInterval = null;
+    }
+
     console.error("[bud] Error processing message:", error);
 
     try {

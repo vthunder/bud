@@ -4,7 +4,7 @@ import { initDatabase, getBlocksByLayer } from "./memory/blocks";
 import { initJournal, appendJournal, getRecentJournal } from "./memory/journal";
 import { gatherPerchContext } from "./perch/context";
 import { selectWork, type WorkItem } from "./perch/work";
-import { sendMessage } from "./discord/sender";
+import { sendMessage, startTyping, stopTyping } from "./discord/sender";
 import { appendLog } from "./memory/logs";
 import { markTaskComplete } from "./tools/tasks";
 import { getState, setState } from "./state";
@@ -29,6 +29,9 @@ async function loadPromptContext(): Promise<PromptContext> {
 
 async function executeWork(work: WorkItem): Promise<void> {
   console.log(`[perch] Executing: ${work.description} (budget: $${work.estimatedBudget.toFixed(2)})`);
+
+  // Start typing indicator
+  await startTyping(config.discord.token, config.discord.channelId);
 
   setState({
     status: "working",
@@ -125,6 +128,9 @@ Begin working on the task now.`;
       work_type: work.type,
       error: error instanceof Error ? error.message : String(error),
     });
+  } finally {
+    // Stop typing indicator
+    await stopTyping();
   }
 
   setState({ status: "idle", current_task: null });
