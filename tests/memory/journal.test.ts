@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { unlink } from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, mkdirSync, rmSync } from "fs";
+import { join } from "path";
 import {
   initJournal,
   appendJournal,
@@ -10,12 +10,19 @@ import {
   type JournalEntry,
 } from "../../src/memory/journal";
 
-const TEST_JOURNAL = "/tmp/test-journal.jsonl";
+const TEST_DIR = join(import.meta.dir, ".test-journal");
+const TEST_JOURNAL = join(TEST_DIR, "journal.jsonl");
 
 describe("journal", () => {
-  beforeEach(async () => {
-    try { await unlink(TEST_JOURNAL); } catch {}
+  beforeEach(() => {
+    // Clean up and recreate test directory
+    rmSync(TEST_DIR, { recursive: true, force: true });
+    mkdirSync(TEST_DIR, { recursive: true });
     initJournal(TEST_JOURNAL);
+  });
+
+  afterEach(() => {
+    rmSync(TEST_DIR, { recursive: true, force: true });
   });
 
   test("appendJournal creates file and adds entry", async () => {

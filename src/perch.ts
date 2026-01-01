@@ -17,6 +17,7 @@ import { createBlockToolsServer, BLOCK_TOOL_NAMES } from "./tools/blocks";
 import { createCalendarToolsServer, CALENDAR_TOOL_NAMES } from "./tools/calendar";
 import { createGitHubToolsServer, GITHUB_TOOL_NAMES } from "./tools/github";
 import { createSkillToolsServer, SKILL_TOOL_NAMES } from "./tools/skills";
+import { createProjectToolsServer, PROJECT_TOOL_NAMES } from "./tools/projects";
 import { parseReposJson } from "./integrations/github";
 import { BEADS_TOOL_NAMES } from "./agent";
 
@@ -95,6 +96,7 @@ Begin working on the task now.`;
   const reposJson = promptContext.working.github_repos || "[]";
   const githubRepos = parseReposJson(reposJson);
   const githubServer = createGitHubToolsServer(githubRepos);
+  const projectsServer = createProjectToolsServer();
 
   try {
     const result = await executeWithYield({
@@ -105,6 +107,7 @@ Begin working on the task now.`;
         github: githubServer,
         skills: skillsServer,
         beads: BEADS_SERVER,
+        projects: projectsServer,
       },
       allowedTools: [
         ...BLOCK_TOOL_NAMES,
@@ -112,6 +115,7 @@ Begin working on the task now.`;
         ...GITHUB_TOOL_NAMES,
         ...SKILL_TOOL_NAMES,
         ...BEADS_TOOL_NAMES,
+        ...PROJECT_TOOL_NAMES,
       ],
       sessionBudget: work.estimatedBudget,
     });
