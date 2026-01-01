@@ -62,6 +62,10 @@ export async function selectWork(scheduledTasks: Array<{ id: string; description
 
 async function getLastSyncTime(): Promise<string | null> {
   const journal = await getRecentJournal(100);
-  const syncEntry = journal.find(e => e.type === "sync" || (e.type === "tool_use" && e.tool === "sync-state"));
+  const syncEntry = journal.find(e =>
+    e.type === "sync" ||
+    (e.type === "tool_use" && e.tool === "sync-state") ||
+    (e.type === "work_completed" && e.work_type === "maintenance" && e.description === "Sync state to GitHub")
+  );
   return syncEntry?.ts || null;
 }
