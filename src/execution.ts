@@ -20,6 +20,7 @@ export interface ExecutionOptions {
 
 export async function executeWithYield(options: ExecutionOptions): Promise<ExecutionResult> {
   const { prompt, mcpServers, allowedTools, sessionBudget } = options;
+  const startTime = Date.now();
 
   // Initialize session tracking
   setState({
@@ -28,12 +29,17 @@ export async function executeWithYield(options: ExecutionOptions): Promise<Execu
   });
 
   const toolsUsed: string[] = [];
+  const toolTimings: { tool: string; elapsed: number }[] = [];
   let responseText = "";
   let totalCost = 0;
   let yielded = false;
   let yieldReason: string | null = null;
+  let lastToolTime = startTime;
+
+  console.log(`[execution] Starting query: ${Object.keys(mcpServers).length} MCP servers, ${allowedTools.length} tools, prompt ${(prompt.length / 1024).toFixed(1)}KB`);
 
   try {
+    const queryStartTime = Date.now();
     const result = query({
       prompt,
       options: {
@@ -43,6 +49,7 @@ export async function executeWithYield(options: ExecutionOptions): Promise<Execu
         pathToClaudeCodeExecutable: "/usr/bin/claude",
       },
     });
+    console.log(`[execution] Query initiated in ${Date.now() - queryStartTime}ms`);
 
     for await (const message of result) {
       // Track cost from result messages
@@ -87,13 +94,19 @@ export async function executeWithYield(options: ExecutionOptions): Promise<Execu
               });
             }
 
+            const now = Date.now();
+            const elapsed = now - lastToolTime;
+            toolTimings.push({ tool: block.name, elapsed });
+            console.log(`[execution] Tool: ${block.name} (${elapsed}ms since last)`);
+            lastToolTime = now;
+
             toolsUsed.push(block.name);
 
-            // Log tool use
-            await appendJournal({
+            // Log tool use (async, don't await to reduce latency)
+            appendJournal({
               type: "tool_use",
               tool: block.name,
-            });
+            }).catch(e => console.error("[execution] Failed to log tool use:", e));
           }
         }
 
@@ -108,6 +121,12 @@ export async function executeWithYield(options: ExecutionOptions): Promise<Execu
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
+  }
+
+  const totalTime = Date.now() - startTime;
+  console.log(`[execution] Complete in ${totalTime}ms, ${toolsUsed.length} tools, $${totalCost.toFixed(4)}`);
+  if (toolTimings.length > 0) {
+    console.log(`[execution] Tool timings: ${toolTimings.map(t => `${t.tool}(${t.elapsed}ms)`).join(", ")}`);
   }
 
   return {
