@@ -1,5 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { unlink } from "fs/promises";
+import { mkdirSync, rmSync } from "fs";
+import { join } from "path";
 import {
   initDatabase,
   getBlock,
@@ -9,16 +10,22 @@ import {
   closeDatabase,
 } from "../../src/memory/blocks";
 
-const TEST_DB = "/tmp/test-bud-memory.db";
+const TEST_DIR = join(import.meta.dir, ".test-blocks");
+const TEST_DB = join(TEST_DIR, "test.db");
 
 describe("memory blocks", () => {
-  beforeEach(async () => {
-    try { await unlink(TEST_DB); } catch {}
+  beforeEach(() => {
+    // Always close any existing database first to prevent global state pollution
+    closeDatabase();
+    // Clean up and recreate test directory
+    rmSync(TEST_DIR, { recursive: true, force: true });
+    mkdirSync(TEST_DIR, { recursive: true });
     initDatabase(TEST_DB);
   });
 
   afterEach(() => {
     closeDatabase();
+    rmSync(TEST_DIR, { recursive: true, force: true });
   });
 
   test("setBlock and getBlock", () => {
