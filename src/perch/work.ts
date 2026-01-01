@@ -1,6 +1,7 @@
 import { getBlock } from "../memory/blocks";
 import { searchJournal } from "../memory/journal";
 import { getRemainingBudget } from "../budget";
+import { getFocus, getFocusedProjects } from "../projects/focus";
 
 export interface WorkItem {
   type: "scheduled_task" | "goal" | "maintenance";
@@ -29,7 +30,23 @@ export async function selectWork(scheduledTasks: Array<{ id: string; description
     };
   }
 
-  // Priority 2: Active goals
+  // Priority 2: Focus-based work (invoke select-work skill)
+  const focus = getFocus();
+  if (focus && focus.projects.length > 0) {
+    const focusedProjects = getFocusedProjects();
+    const topProject = focusedProjects[0];
+
+    // Return work item that tells the agent to use select-work skill
+    return {
+      type: "goal",
+      id: `project-${topProject.name}`,
+      description: `Work on ${topProject.name}`,
+      context: buildFocusContext(focusedProjects),
+      estimatedBudget: Math.min(1.00, remaining),
+    };
+  }
+
+  // Priority 3: Active goals (legacy - backwards compatibility)
   const goals = getBlock("goals");
   if (goals && goals !== "(No active goals.)") {
     return {
@@ -41,7 +58,7 @@ export async function selectWork(scheduledTasks: Array<{ id: string; description
     };
   }
 
-  // Priority 3: Maintenance (sync state, etc.)
+  // Priority 4: Maintenance (sync state, etc.)
   const lastSync = await getLastSyncTime();
   const hoursSinceSync = lastSync
     ? (Date.now() - new Date(lastSync).getTime()) / (1000 * 60 * 60)
@@ -69,4 +86,18 @@ async function getLastSyncTime(): Promise<string | null> {
 
   // Return the most recent match
   return entries.length > 0 ? entries[entries.length - 1].ts : null;
+}
+
+function buildFocusContext(projects: Array<{ name: string; path: string; priority: number; notes?: string }>): string {
+  let context = "## Focused Projects\n\n";
+  context += "Use the `select-work` skill to evaluate these projects and select work.\n\n";
+
+  for (const p of projects) {
+    context += `### ${p.name} (priority ${p.priority})\n`;
+    context += `- Path: ${p.path}\n`;
+    if (p.notes) context += `- Notes: ${p.notes}\n`;
+    context += "\n";
+  }
+
+  return context;
 }
