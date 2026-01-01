@@ -1,5 +1,5 @@
 import { getBlock } from "../memory/blocks";
-import { getRecentJournal } from "../memory/journal";
+import { searchJournal } from "../memory/journal";
 import { getRemainingBudget } from "../budget";
 
 export interface WorkItem {
@@ -61,11 +61,12 @@ export async function selectWork(scheduledTasks: Array<{ id: string; description
 }
 
 async function getLastSyncTime(): Promise<string | null> {
-  const journal = await getRecentJournal(100);
-  const syncEntry = journal.find(e =>
+  const entries = await searchJournal(e =>
     e.type === "sync" ||
     (e.type === "tool_use" && e.tool === "sync-state") ||
     (e.type === "work_completed" && e.work_type === "maintenance" && e.description === "Sync state to GitHub")
   );
-  return syncEntry?.ts || null;
+
+  // Return the most recent match
+  return entries.length > 0 ? entries[entries.length - 1].ts : null;
 }
