@@ -1,4 +1,5 @@
 import type { Client } from "discord.js";
+import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { config, getDbPath, getJournalPath } from "./config";
 import { initDatabase, getBlocksByLayer } from "./memory/blocks";
 import { initJournal, appendJournal, getRecentJournal } from "./memory/journal";
@@ -13,6 +14,31 @@ import { listSkillNames } from "./skills";
 import { executeWithYield } from "./execution";
 import { setState, clearPreempt } from "./state";
 import { getRemainingBudget, checkDailyReset } from "./budget";
+
+// Beads MCP server for issue tracking across repos
+const BEADS_SERVER: McpStdioServerConfig = {
+  type: "stdio",
+  command: "beads-mcp",
+  env: {
+    BEADS_PATH: process.env.BEADS_PATH || "/app/node_modules/@beads/bd/bin/bd",
+  },
+};
+
+// Beads tool names (mcp__<server>__<tool>)
+export const BEADS_TOOL_NAMES = [
+  "mcp__beads__set_context",
+  "mcp__beads__init",
+  "mcp__beads__create",
+  "mcp__beads__list",
+  "mcp__beads__show",
+  "mcp__beads__update",
+  "mcp__beads__close",
+  "mcp__beads__reopen",
+  "mcp__beads__ready",
+  "mcp__beads__blocked",
+  "mcp__beads__dep",
+  "mcp__beads__stats",
+];
 
 export interface AgentContext {
   userId: string;
@@ -104,6 +130,7 @@ export async function invokeAgent(
         github: githubServer,
         images: imageServer,
         skills: skillsServer,
+        beads: BEADS_SERVER,
       },
       allowedTools: [
         ...BLOCK_TOOL_NAMES,
@@ -111,6 +138,7 @@ export async function invokeAgent(
         ...GITHUB_TOOL_NAMES,
         ...IMAGE_TOOL_NAMES,
         ...SKILL_TOOL_NAMES,
+        ...BEADS_TOOL_NAMES,
       ],
       sessionBudget: budget,
     });

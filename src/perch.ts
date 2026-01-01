@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { config, validateConfig, getDbPath, getJournalPath } from "./config";
 import { initDatabase, getBlocksByLayer } from "./memory/blocks";
 import { initJournal, appendJournal, getRecentJournal } from "./memory/journal";
@@ -17,6 +18,16 @@ import { createCalendarToolsServer, CALENDAR_TOOL_NAMES } from "./tools/calendar
 import { createGitHubToolsServer, GITHUB_TOOL_NAMES } from "./tools/github";
 import { createSkillToolsServer, SKILL_TOOL_NAMES } from "./tools/skills";
 import { parseReposJson } from "./integrations/github";
+import { BEADS_TOOL_NAMES } from "./agent";
+
+// Beads MCP server for issue tracking across repos
+const BEADS_SERVER: McpStdioServerConfig = {
+  type: "stdio",
+  command: "beads-mcp",
+  env: {
+    BEADS_PATH: process.env.BEADS_PATH || "/app/node_modules/@beads/bd/bin/bd",
+  },
+};
 
 async function loadPromptContext(): Promise<PromptContext> {
   const identity = getBlocksByLayer(2);
@@ -92,12 +103,14 @@ Begin working on the task now.`;
         calendar: calendarServer,
         github: githubServer,
         skills: skillsServer,
+        beads: BEADS_SERVER,
       },
       allowedTools: [
         ...BLOCK_TOOL_NAMES,
         ...CALENDAR_TOOL_NAMES,
         ...GITHUB_TOOL_NAMES,
         ...SKILL_TOOL_NAMES,
+        ...BEADS_TOOL_NAMES,
       ],
       sessionBudget: work.estimatedBudget,
     });

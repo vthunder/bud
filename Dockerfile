@@ -18,12 +18,19 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 # Install Claude Code CLI globally
 RUN npm install -g @anthropic-ai/claude-code
 
+# Install Python and beads-mcp for beads MCP server
+RUN apt-get update && apt-get install -y python3 python3-pip && \
+    pip3 install --break-system-packages beads-mcp && \
+    rm -rf /var/lib/apt/lists/*
+
 # Create non-root user (Claude CLI blocks root for security)
 RUN useradd -m -s /bin/bash bud && chown -R bud:bud /app
 USER bud
 
 # Set home directory for Claude CLI config
 ENV HOME=/app
+# Set beads path to the npm-installed binary
+ENV BEADS_PATH=/app/node_modules/@beads/bd/bin/bd
 RUN mkdir -p /app/.claude
 
 # Install dependencies
