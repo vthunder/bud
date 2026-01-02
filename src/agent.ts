@@ -48,7 +48,7 @@ const NOTION_SERVER: McpStdioServerConfig = {
   type: "stdio",
   command: "notion-mcp-server",
   env: {
-    NOTION_API_KEY: process.env.NOTION_API_KEY || "",
+    NOTION_TOKEN: process.env.NOTION_API_KEY || "",
   },
 };
 
