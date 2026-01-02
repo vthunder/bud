@@ -95,7 +95,7 @@ export async function invokeAgent(
       type: "trigger",
       trigger_type: "message",
       from: context.username,
-      preview: userMessage.slice(0, 100),
+      content: userMessage,
     });
 
     // Load prompt context from local memory
@@ -150,7 +150,7 @@ export async function invokeAgent(
     await appendJournal({
       type: "message_sent",
       to: context.username,
-      preview: result.response.slice(0, 100),
+      content: result.response,
       tools_used: result.toolsUsed,
       cost: result.totalCost,
       yielded: result.yielded,
