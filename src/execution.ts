@@ -3,6 +3,76 @@ import { getState, setState, shouldYield, isWrappingUp } from "./state";
 import { trackCost, formatBudgetStatus } from "./budget";
 import { appendJournal } from "./memory/journal";
 
+/**
+ * Summarize tool input for journal logging.
+ * Extracts key details while avoiding sensitive data and keeping size reasonable.
+ */
+function summarizeToolInput(toolName: string, input: unknown): string | undefined {
+  if (!input || typeof input !== "object") return undefined;
+
+  const inp = input as Record<string, unknown>;
+
+  switch (toolName) {
+    case "Bash":
+      if (typeof inp.command === "string") {
+        // Truncate long commands, avoid logging potential secrets
+        const cmd = inp.command.slice(0, 200);
+        return cmd.length < inp.command.length ? cmd + "..." : cmd;
+      }
+      break;
+
+    case "Read":
+      if (typeof inp.file_path === "string") {
+        return inp.file_path;
+      }
+      break;
+
+    case "Write":
+      if (typeof inp.file_path === "string") {
+        return inp.file_path;
+      }
+      break;
+
+    case "Edit":
+      if (typeof inp.file_path === "string") {
+        return inp.file_path;
+      }
+      break;
+
+    case "Glob":
+      if (typeof inp.pattern === "string") {
+        return inp.pattern;
+      }
+      break;
+
+    case "Grep":
+      if (typeof inp.pattern === "string") {
+        const path = typeof inp.path === "string" ? ` in ${inp.path}` : "";
+        return `/${inp.pattern}/${path}`;
+      }
+      break;
+
+    case "TodoWrite":
+      if (Array.isArray(inp.todos)) {
+        return `${inp.todos.length} items`;
+      }
+      break;
+
+    default:
+      // For MCP tools, try to extract a meaningful identifier
+      if (toolName.startsWith("mcp__")) {
+        // Look for common identifier fields
+        for (const key of ["issue_id", "block_name", "name", "id", "query"]) {
+          if (typeof inp[key] === "string") {
+            return `${key}=${inp[key]}`;
+          }
+        }
+      }
+  }
+
+  return undefined;
+}
+
 export interface ExecutionResult {
   response: string;
   toolsUsed: string[];
@@ -109,10 +179,12 @@ export async function executeWithYield(options: ExecutionOptions): Promise<Execu
 
             toolsUsed.push(block.name);
 
-            // Log tool use (async, don't await to reduce latency)
+            // Log tool use with input summary (async, don't await to reduce latency)
+            const inputSummary = summarizeToolInput(block.name, block.input);
             appendJournal({
               type: "tool_use",
               tool: block.name,
+              ...(inputSummary && { input: inputSummary }),
             }).catch(e => console.error("[execution] Failed to log tool use:", e));
           }
         }
