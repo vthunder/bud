@@ -43,6 +43,27 @@ export const BEADS_TOOL_NAMES = [
   "mcp__beads__admin",
 ];
 
+// Notion MCP server for workspace integration
+const NOTION_SERVER: McpStdioServerConfig = {
+  type: "stdio",
+  command: "notion-mcp-server",
+  env: {
+    NOTION_API_KEY: process.env.NOTION_API_KEY || "",
+  },
+};
+
+// Notion tool names - will be discovered at runtime
+export const NOTION_TOOL_NAMES = [
+  "mcp__notion__search",
+  "mcp__notion__get_page",
+  "mcp__notion__get_database",
+  "mcp__notion__query_database",
+  "mcp__notion__get_block_children",
+  "mcp__notion__append_block_children",
+  "mcp__notion__create_page",
+  "mcp__notion__update_page",
+];
+
 export interface AgentContext {
   userId: string;
   username: string;
@@ -134,6 +155,7 @@ export async function invokeAgent(
         images: imageServer,
         skills: skillsServer,
         beads: BEADS_SERVER,
+        notion: NOTION_SERVER,
       },
       allowedTools: [
         ...BLOCK_TOOL_NAMES,
@@ -142,6 +164,7 @@ export async function invokeAgent(
         ...IMAGE_TOOL_NAMES,
         ...SKILL_TOOL_NAMES,
         ...BEADS_TOOL_NAMES,
+        ...NOTION_TOOL_NAMES,
       ],
       sessionBudget: budget,
     });
