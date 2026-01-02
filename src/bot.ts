@@ -107,7 +107,38 @@ client.on(Events.MessageCreate, async (message: Message) => {
     }
 
     if (result.response) {
-      await message.reply(result.response);
+      // Discord has a 2000 char limit per message
+      const MAX_LENGTH = 2000;
+      if (result.response.length <= MAX_LENGTH) {
+        await message.reply(result.response);
+      } else {
+        // Split into chunks, preferring line breaks
+        const chunks: string[] = [];
+        let remaining = result.response;
+        while (remaining.length > 0) {
+          if (remaining.length <= MAX_LENGTH) {
+            chunks.push(remaining);
+            break;
+          }
+          // Find a good break point (newline or space)
+          let breakPoint = remaining.lastIndexOf('\n', MAX_LENGTH);
+          if (breakPoint < MAX_LENGTH / 2) {
+            breakPoint = remaining.lastIndexOf(' ', MAX_LENGTH);
+          }
+          if (breakPoint < MAX_LENGTH / 2) {
+            breakPoint = MAX_LENGTH; // Force break if no good point
+          }
+          chunks.push(remaining.slice(0, breakPoint));
+          remaining = remaining.slice(breakPoint).trimStart();
+        }
+        // Send first chunk as reply, rest as follow-ups
+        await message.reply(chunks[0]);
+        for (let i = 1; i < chunks.length; i++) {
+          if ('send' in message.channel) {
+            await message.channel.send(chunks[i]);
+          }
+        }
+      }
     }
 
     // Log the interaction (non-fatal if it fails)
