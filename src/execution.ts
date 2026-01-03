@@ -148,16 +148,25 @@ export async function executeWithYield(
       }
     }
 
-    // Track cost (estimated since CLI doesn't provide exact cost)
-    // Estimate based on prompt size and response size
-    const estimatedCost = estimateTokenCost(prompt, result.response);
-    trackCost(estimatedCost);
-    setState({ session_spent: estimatedCost });
+    // Track actual cost from Claude CLI JSON output
+    const actualCost = result.totalCost;
+    trackCost(actualCost);
+    setState({ session_spent: actualCost });
+
+    // Log token usage if available
+    if (result.usage) {
+      console.log(
+        `[execution] Tokens: ${result.usage.inputTokens} in, ${result.usage.outputTokens} out` +
+          (result.usage.cacheReadTokens > 0
+            ? `, ${result.usage.cacheReadTokens} cache read`
+            : "")
+      );
+    }
 
     return {
       response: result.response,
       toolsUsed: result.toolsUsed,
-      totalCost: estimatedCost,
+      totalCost: actualCost,
       yielded: false,
       yieldReason: null,
     };
@@ -171,22 +180,3 @@ export async function executeWithYield(
   }
 }
 
-/**
- * Estimate token cost based on text length
- * Very rough estimate - actual cost depends on model and tokenization
- */
-function estimateTokenCost(prompt: string, response: string): number {
-  // Rough estimate: 4 chars per token
-  const promptTokens = prompt.length / 4;
-  const responseTokens = response.length / 4;
-
-  // Claude Sonnet pricing (approximate)
-  const inputCostPer1K = 0.003;
-  const outputCostPer1K = 0.015;
-
-  const cost =
-    (promptTokens / 1000) * inputCostPer1K +
-    (responseTokens / 1000) * outputCostPer1K;
-
-  return Math.max(0.001, cost); // Minimum $0.001
-}

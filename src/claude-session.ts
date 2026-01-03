@@ -25,7 +25,28 @@ export interface SessionResponse {
   response: string;
   toolsUsed: string[];
   totalCost: number;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheCreationTokens: number;
+    cacheReadTokens: number;
+  };
   error?: string;
+}
+
+interface ClaudeJsonResponse {
+  type: string;
+  subtype: string;
+  result: string;
+  is_error: boolean;
+  total_cost_usd: number;
+  num_turns: number;
+  usage: {
+    input_tokens: number;
+    output_tokens: number;
+    cache_creation_input_tokens: number;
+    cache_read_input_tokens: number;
+  };
 }
 
 /**
@@ -106,12 +127,12 @@ export class ClaudeSession {
     // Write prompt to file (handles special characters better)
     await writeFile(promptFile, prompt);
 
-    // Build claude command
+    // Build claude command - use JSON output for cost tracking
     const claudeArgs = [
       "--print",
       "--dangerously-skip-permissions",
       "--output-format",
-      "text",
+      "json",
     ];
 
     // Add MCP config if provided
@@ -184,27 +205,13 @@ export class ClaudeSession {
       if (existsSync(doneFile)) {
         try {
           const exitCode = parseInt(await readFile(doneFile, "utf-8"), 10);
-          const output = existsSync(outputFile)
+          const rawOutput = existsSync(outputFile)
             ? await readFile(outputFile, "utf-8")
             : "";
 
-          // Parse output for tool usage (look for common patterns)
-          const toolsUsed = this.extractToolsFromOutput(output);
-
-          if (exitCode !== 0) {
-            return {
-              response: output || `Claude exited with code ${exitCode}`,
-              toolsUsed,
-              totalCost: 0,
-              error: `exit_code_${exitCode}`,
-            };
-          }
-
-          return {
-            response: output.trim(),
-            toolsUsed,
-            totalCost: 0, // Cost tracking not available in CLI mode
-          };
+          // Parse JSON response from Claude CLI
+          const parsed = this.parseClaudeOutput(rawOutput, exitCode);
+          return parsed;
         } catch (e) {
           console.error("[claude-session] Error reading output:", e);
         }
@@ -223,6 +230,72 @@ export class ClaudeSession {
       totalCost: 0,
       error: "timeout",
     };
+  }
+
+  /**
+   * Parse Claude CLI JSON output
+   */
+  private parseClaudeOutput(
+    rawOutput: string,
+    exitCode: number
+  ): SessionResponse {
+    // Try to parse as JSON
+    try {
+      const json = JSON.parse(rawOutput.trim()) as ClaudeJsonResponse;
+
+      const usage = json.usage
+        ? {
+            inputTokens: json.usage.input_tokens || 0,
+            outputTokens: json.usage.output_tokens || 0,
+            cacheCreationTokens: json.usage.cache_creation_input_tokens || 0,
+            cacheReadTokens: json.usage.cache_read_input_tokens || 0,
+          }
+        : undefined;
+
+      // Log cost info
+      if (json.total_cost_usd > 0) {
+        console.log(
+          `[claude-session] Cost: $${json.total_cost_usd.toFixed(4)}, ` +
+            `tokens: ${usage?.inputTokens || 0} in / ${usage?.outputTokens || 0} out, ` +
+            `turns: ${json.num_turns}`
+        );
+      }
+
+      if (json.is_error || json.subtype !== "success") {
+        return {
+          response: json.result || rawOutput,
+          toolsUsed: [],
+          totalCost: json.total_cost_usd || 0,
+          usage,
+          error: json.subtype || "unknown_error",
+        };
+      }
+
+      return {
+        response: json.result || "",
+        toolsUsed: [], // Tool info not in JSON output, could parse from result text
+        totalCost: json.total_cost_usd || 0,
+        usage,
+      };
+    } catch {
+      // Fallback for non-JSON output (shouldn't happen with --output-format json)
+      console.warn("[claude-session] Failed to parse JSON, using raw output");
+
+      if (exitCode !== 0) {
+        return {
+          response: rawOutput || `Claude exited with code ${exitCode}`,
+          toolsUsed: [],
+          totalCost: 0,
+          error: `exit_code_${exitCode}`,
+        };
+      }
+
+      return {
+        response: rawOutput.trim(),
+        toolsUsed: [],
+        totalCost: 0,
+      };
+    }
   }
 
   /**

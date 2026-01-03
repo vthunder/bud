@@ -5,7 +5,8 @@ import {
   serializeTasksJson,
   createTask,
   removeTask,
-  advanceRecurringTask,
+  markTaskRun,
+  isOneOffTask,
 } from "../perch/tasks";
 
 const TASKS_BLOCK = "scheduled_tasks";
@@ -25,21 +26,24 @@ export interface ListTasksResult {
   tasks: ScheduledTask[];
 }
 
+/**
+ * Schedule a new task
+ * @param description - What the task should do
+ * @param timing - "daily", "weekly", "hourly", or ISO timestamp / relative time ("30m", "2h")
+ * @param requiresWakeup - Whether this task should wake Bud up (default true)
+ * @param context - Optional additional context
+ */
 export function scheduleTask(
   description: string,
-  dueAt: string,
-  recurring?: "daily" | "weekly" | "monthly",
+  timing: string,
+  requiresWakeup: boolean = true,
   context?: string
 ): ScheduleTaskResult {
   try {
     const json = getBlock(TASKS_BLOCK) ?? "[]";
     const tasks = parseTasksJson(json);
 
-    const task = createTask(description, dueAt, recurring);
-    if (context) {
-      task.context = context;
-    }
-
+    const task = createTask(description, timing, requiresWakeup, context);
     tasks.push(task);
     setBlock(TASKS_BLOCK, serializeTasksJson(tasks));
 
@@ -96,17 +100,17 @@ export function markTaskComplete(taskId: string): CancelTaskResult {
     }
 
     const task = tasks[taskIndex];
-    console.log(`[tasks] markTaskComplete: ${task.description} (recurring: ${task.recurring ?? "no"})`);
+    const isOneOff = isOneOffTask(task);
+    console.log(`[tasks] markTaskComplete: ${task.description} (timing: ${task.timing}, one-off: ${isOneOff})`);
 
-    if (task.recurring) {
-      const nextTask = advanceRecurringTask(task);
-      if (nextTask) {
-        console.log(`[tasks] Advanced recurring task to: ${nextTask.dueAt}`);
-        tasks[taskIndex] = nextTask;
-      }
-    } else {
+    if (isOneOff) {
+      // One-off task: remove it
       console.log(`[tasks] Removing one-time task`);
       tasks.splice(taskIndex, 1);
+    } else {
+      // Recurring task: update lastRun timestamp
+      console.log(`[tasks] Updating lastRun for recurring task`);
+      tasks[taskIndex] = markTaskRun(task);
     }
 
     setBlock(TASKS_BLOCK, serializeTasksJson(tasks));
