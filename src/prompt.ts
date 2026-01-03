@@ -36,6 +36,16 @@ ${working.goals ? `### Active Goals\n${working.goals}` : ""}
 
 ${working.schedule ? `### Schedule\n${working.schedule}` : ""}
 
+## Communication
+
+To message your owner, use the **send_message** tool. This is your ONLY way to communicate.
+- Call it whenever you want to say something
+- You can call it multiple times to send multiple messages
+- Messages are sent to Discord
+- Max 2000 characters per message
+
+Do NOT assume your text output will be shown to the user. Only send_message reaches them.
+
 ## Memory Tools
 
 You have tools to persist information:

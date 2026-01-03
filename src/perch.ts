@@ -1,35 +1,21 @@
 #!/usr/bin/env bun
-import type { McpStdioServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { config, validateConfig, getDbPath, getJournalPath } from "./config";
 import { initDatabase, getBlocksByLayer } from "./memory/blocks";
 import { initJournal, appendJournal, getRecentJournal } from "./memory/journal";
 import { gatherPerchContext } from "./perch/context";
 import { selectWork, type WorkItem } from "./perch/work";
-import { sendMessage, startTyping, stopTyping } from "./discord/sender";
+import { startTyping, stopTyping } from "./discord/sender";
 import { appendLog } from "./memory/logs";
 import { markTaskComplete } from "./tools/tasks";
 import { getState, setState } from "./state";
-import { checkDailyReset, getRemainingBudget, formatBudgetStatus } from "./budget";
+import {
+  checkDailyReset,
+  getRemainingBudget,
+  formatBudgetStatus,
+} from "./budget";
 import { executeWithYield } from "./execution";
 import { buildFullPrompt, type PromptContext } from "./prompt";
 import { listSkillNames } from "./skills";
-import { createBlockToolsServer, BLOCK_TOOL_NAMES } from "./tools/blocks";
-import { createCalendarToolsServer, CALENDAR_TOOL_NAMES } from "./tools/calendar";
-import { createGitHubToolsServer, GITHUB_TOOL_NAMES } from "./tools/github";
-import { createSkillToolsServer, SKILL_TOOL_NAMES } from "./tools/skills";
-import { createProjectToolsServer, PROJECT_TOOL_NAMES } from "./tools/projects";
-import { parseReposJson } from "./integrations/github";
-import { BEADS_TOOL_NAMES } from "./agent";
-
-// Beads MCP server for issue tracking across repos
-const BEADS_SERVER: McpStdioServerConfig = {
-  type: "stdio",
-  command: "beads-mcp",
-  env: {
-    BEADS_PATH: process.env.BEADS_PATH || "/app/.local/bin/bd",
-    BEADS_USE_DAEMON: "0", // Use CLI mode to avoid daemon connection issues
-  },
-};
 
 async function loadPromptContext(): Promise<PromptContext> {
   const identity = getBlocksByLayer(2);
@@ -41,7 +27,9 @@ async function loadPromptContext(): Promise<PromptContext> {
 }
 
 async function executeWork(work: WorkItem): Promise<void> {
-  console.log(`[perch] Executing: ${work.description} (budget: $${work.estimatedBudget.toFixed(2)})`);
+  console.log(
+    `[perch] Executing: ${work.description} (budget: $${work.estimatedBudget.toFixed(2)})`
+  );
 
   // Start typing indicator
   await startTyping(config.discord.token, config.discord.channelId);
@@ -89,34 +77,9 @@ Begin working on the task now.`;
     content: workPrompt,
   });
 
-  // Create MCP servers
-  const memoryServer = createBlockToolsServer();
-  const calendarServer = createCalendarToolsServer();
-  const skillsServer = createSkillToolsServer();
-  const reposJson = promptContext.working.github_repos || "[]";
-  const githubRepos = parseReposJson(reposJson);
-  const githubServer = createGitHubToolsServer(githubRepos);
-  const projectsServer = createProjectToolsServer();
-
   try {
     const result = await executeWithYield({
       prompt: fullPrompt,
-      mcpServers: {
-        memory: memoryServer,
-        calendar: calendarServer,
-        github: githubServer,
-        skills: skillsServer,
-        beads: BEADS_SERVER,
-        projects: projectsServer,
-      },
-      allowedTools: [
-        ...BLOCK_TOOL_NAMES,
-        ...CALENDAR_TOOL_NAMES,
-        ...GITHUB_TOOL_NAMES,
-        ...SKILL_TOOL_NAMES,
-        ...BEADS_TOOL_NAMES,
-        ...PROJECT_TOOL_NAMES,
-      ],
       sessionBudget: work.estimatedBudget,
     });
 
@@ -130,15 +93,11 @@ Begin working on the task now.`;
       yield_reason: result.yieldReason,
     });
 
-    // Send Discord update if there's something to report
-    if (result.response && result.response.length > 0) {
-      await sendMessage({
-        token: config.discord.token,
-        channelId: config.discord.channelId,
-        content: result.response.slice(0, 2000), // Discord limit
-      });
-    }
-
+    // The agent uses the send_message tool to communicate with Discord
+    // We don't auto-send responses here - the tool handles all messaging
+    console.log(
+      `[perch] Work completed: ${result.toolsUsed.length} tools used`
+    );
   } catch (error) {
     console.error("[perch] Work execution error:", error);
     await appendJournal({
