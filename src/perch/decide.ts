@@ -1,4 +1,4 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { getDefaultSession } from "../claude-session";
 import type { PerchContext } from "./context";
 
 export interface PerchDecision {
@@ -11,7 +11,10 @@ export interface DecideOptions {
   isFullTick: boolean;
 }
 
-function buildPerchPrompt(context: PerchContext, options: DecideOptions): string {
+function buildPerchPrompt(
+  context: PerchContext,
+  options: DecideOptions
+): string {
   const interactionSummary =
     context.recentInteractions.length > 0
       ? context.recentInteractions
@@ -120,23 +123,12 @@ export async function decidePerchAction(
   try {
     const prompt = buildPerchPrompt(context, options);
 
-    let responseText = "";
-    const result = query({
-      prompt,
-      options: {
-        permissionMode: "bypassPermissions",
-        allowedTools: [],
-        pathToClaudeCodeExecutable: "/usr/bin/claude",
-      },
+    const session = getDefaultSession();
+    const result = await session.sendMessage(prompt, {
+      timeoutMs: 60000, // 1 minute for decision
     });
 
-    for await (const message of result) {
-      if (message.type === "result" && "result" in message) {
-        responseText = message.result ?? "";
-      }
-    }
-
-    responseText = responseText.trim();
+    const responseText = result.response.trim();
 
     if (!responseText || responseText === "SILENT") {
       return null;

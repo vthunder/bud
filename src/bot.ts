@@ -6,6 +6,7 @@ import { initDatabase } from "./memory/blocks";
 import { initJournal } from "./memory/journal";
 import { getState, requestPreempt, clearPreempt } from "./state";
 import { checkDailyReset } from "./budget";
+import { getDefaultSession, destroyDefaultSession } from "./claude-session";
 
 validateConfig();
 
@@ -24,10 +25,39 @@ const client = new Client({
 // Track pending messages when preempting
 const pendingMessages: Message[] = [];
 
-client.once(Events.ClientReady, (c) => {
+client.once(Events.ClientReady, async (c) => {
   console.log(`[bud] Ready! Logged in as ${c.user.tag}`);
   checkDailyReset("Europe/Berlin");
+
+  // Initialize Claude tmux session
+  try {
+    const session = getDefaultSession();
+    await session.ensureSession();
+    console.log("[bud] Claude tmux session initialized");
+  } catch (error) {
+    console.error("[bud] Failed to initialize Claude session:", error);
+  }
 });
+
+// Graceful shutdown
+async function shutdown(signal: string) {
+  console.log(`[bud] Received ${signal}, shutting down...`);
+
+  // Destroy Claude session
+  try {
+    await destroyDefaultSession();
+    console.log("[bud] Claude session destroyed");
+  } catch (error) {
+    console.error("[bud] Error destroying Claude session:", error);
+  }
+
+  // Disconnect Discord client
+  client.destroy();
+  process.exit(0);
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 client.on(Events.MessageCreate, async (message: Message) => {
   // Ignore bot messages and messages outside our channel
@@ -37,7 +67,9 @@ client.on(Events.MessageCreate, async (message: Message) => {
   // Check if Bud is currently working
   const state = getState();
   if (state.status === "working") {
-    console.log(`[bud] Currently working on: ${state.current_task}, requesting preempt`);
+    console.log(
+      `[bud] Currently working on: ${state.current_task}, requesting preempt`
+    );
 
     // Send "please wait" message
     await message.reply("One moment, I'm finishing something up...");
@@ -54,7 +86,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
     let waited = 0;
 
     while (waited < maxWait) {
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
       waited += pollInterval;
 
       const currentState = getState();
@@ -73,7 +105,9 @@ client.on(Events.MessageCreate, async (message: Message) => {
   }
 
   const timestamp = new Date().toISOString();
-  console.log(`[bud] ${timestamp} Message from ${message.author.username}: ${message.content}`);
+  console.log(
+    `[bud] ${timestamp} Message from ${message.author.username}: ${message.content}`
+  );
 
   // Set up continuous typing indicator
   let typingInterval: ReturnType<typeof setInterval> | null = null;
@@ -121,9 +155,9 @@ client.on(Events.MessageCreate, async (message: Message) => {
             break;
           }
           // Find a good break point (newline or space)
-          let breakPoint = remaining.lastIndexOf('\n', MAX_LENGTH);
+          let breakPoint = remaining.lastIndexOf("\n", MAX_LENGTH);
           if (breakPoint < MAX_LENGTH / 2) {
-            breakPoint = remaining.lastIndexOf(' ', MAX_LENGTH);
+            breakPoint = remaining.lastIndexOf(" ", MAX_LENGTH);
           }
           if (breakPoint < MAX_LENGTH / 2) {
             breakPoint = MAX_LENGTH; // Force break if no good point
@@ -134,7 +168,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
         // Send first chunk as reply, rest as follow-ups
         await message.reply(chunks[0]);
         for (let i = 1; i < chunks.length; i++) {
-          if ('send' in message.channel) {
+          if ("send" in message.channel) {
             await message.channel.send(chunks[i]);
           }
         }
@@ -172,7 +206,9 @@ client.on(Events.MessageCreate, async (message: Message) => {
       console.error("[bud] Failed to log error:", logError);
     }
 
-    await message.reply("Sorry, I encountered an error processing your message.");
+    await message.reply(
+      "Sorry, I encountered an error processing your message."
+    );
   }
 });
 
