@@ -119,8 +119,12 @@ export class ClaudeSession {
       claudeArgs.push("--mcp-config", options.mcpConfigPath);
     }
 
+    // Explicitly pass ANTHROPIC_API_KEY to avoid relying on shell env inheritance
+    const apiKey = process.env.ANTHROPIC_API_KEY || "";
+    const envPrefix = apiKey ? `ANTHROPIC_API_KEY="${apiKey}" ` : "";
+
     // The command: read prompt from file, run claude, save output, mark done
-    const cmd = `cat "${promptFile}" | ${this.claudePath} ${claudeArgs.join(" ")} > "${outputFile}" 2>&1; echo $? > "${doneFile}"`;
+    const cmd = `cat "${promptFile}" | ${envPrefix}${this.claudePath} ${claudeArgs.join(" ")} > "${outputFile}" 2>&1; echo $? > "${doneFile}"`;
 
     console.log(`[claude-session] Starting request ${requestId}`);
 
