@@ -6,16 +6,38 @@ Bud uses a project-based system for organizing work.
 
 ### Projects
 
-A project is a directory containing notes, goals, and context:
+A project is a directory with two required files:
 
 ```
-~/.bud/projects/
+/app/state/projects/
   my-project/
-    notes.md     # Freeform notes and context
-    goals.md     # Structured goals
-    links.md     # Links to repos, resources
-    log.md       # Activity log
+    notes.md     # Required: freeform context, status, links
+    log.jsonl    # Required: append-only activity log
 ```
+
+**notes.md** contains everything relevant to the project:
+- What the project is about
+- Current status and context
+- Links to repos, docs, beads
+- References to any additional files in the project
+
+**log.jsonl** is an append-only activity log in JSONL format:
+```jsonl
+{"ts":"2026-01-02T10:00:00Z","type":"created","note":"Initial project setup"}
+{"ts":"2026-01-02T14:00:00Z","type":"work","note":"Completed research phase","outcome":"Chose approach A"}
+{"ts":"2026-01-03T09:00:00Z","type":"milestone","note":"MVP complete"}
+```
+
+Log entry types:
+- `created` - Project created
+- `update` - Notes or context updated
+- `work` - Work session completed
+- `milestone` - Significant achievement
+- `decision` - Decision made with reasoning
+- `blocked` - Work blocked, with reason
+- `completed` - Project finished
+
+Additional files (research.md, goals.md, etc.) are optional and should be discoverable from notes.md.
 
 ### Focus
 
@@ -27,20 +49,17 @@ Remove: "Remove [project] from focus"
 
 ### Goals
 
-Goals live in each project's `goals.md`:
+Goals can be tracked in notes.md or a separate goals.md (referenced from notes.md):
 
 ```markdown
-## Active
+## Goals
 
-### Ship feature X
-- Priority: 1
-- Deadline: 2026-01-15
-- Links: beads:BID-5
+### Active
+- Ship feature X (deadline: 2026-01-15, beads: BUD-5)
+- Fix performance issues
 
-## Completed
-
-### Fix bug Y
-- Completed: 2026-01-01
+### Completed
+- Fix bug Y (2026-01-01)
 ```
 
 ## Skills
