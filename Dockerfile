@@ -27,16 +27,13 @@ RUN apt-get update && apt-get install -y python3 python3-pip && \
 RUN useradd -m -s /bin/bash bud && chown -R bud:bud /app
 USER bud
 
-# Set home directory for Claude CLI config
-ENV HOME=/app
+# Install bd CLI for beads (installed to /app/.local/bin during build)
 ENV PATH="/app/.local/bin:${PATH}"
-
-# Install bd CLI for beads
 RUN curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
-
-# Set beads path to the installed binary
 ENV BEADS_PATH=/app/.local/bin/bd
-RUN mkdir -p /app/.claude
+
+# Set HOME to state dir so Claude OAuth persists (~/.claude, ~/.claude.json)
+ENV HOME=/app/state
 
 # Install dependencies
 COPY --chown=bud:bud package.json bun.lock ./

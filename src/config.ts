@@ -45,7 +45,7 @@ export function validateConfig(): void {
   const required = [
     ["DISCORD_TOKEN", config.discord.token],
     ["DISCORD_CHANNEL_ID", config.discord.channelId],
-    ["ANTHROPIC_API_KEY", config.anthropic.apiKey],
+    // ANTHROPIC_API_KEY is optional - Claude Code can use OAuth instead
   ] as const;
 
   const missing = required.filter(([, value]) => !value).map(([name]) => name);
