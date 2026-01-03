@@ -1,8 +1,8 @@
 FROM oven/bun:1 AS base
 WORKDIR /app
 
-# Install Node.js (required for Claude CLI)
-RUN apt-get update && apt-get install -y curl && \
+# Install Node.js (required for Claude CLI) and tmux (for Claude sessions)
+RUN apt-get update && apt-get install -y curl tmux && \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
