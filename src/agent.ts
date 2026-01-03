@@ -1,12 +1,13 @@
 import type { Client } from "discord.js";
 import { config, getDbPath, getJournalPath } from "./config";
 import { initDatabase, getBlocksByLayer } from "./memory/blocks";
-import { initJournal, appendJournal, getRecentJournal } from "./memory/journal";
-import { buildFullPrompt, type PromptContext } from "./prompt";
+import { initJournal, appendJournal, getRecentJournal, getJournalEntriesSince } from "./memory/journal";
+import { buildFullPrompt, buildContinuationPrompt, type PromptContext, type ContinuationContext } from "./prompt";
 import { listSkillNames } from "./skills";
 import { executeWithYield } from "./execution";
 import { setState, clearPreempt } from "./state";
 import { getRemainingBudget, checkDailyReset } from "./budget";
+import { getSessionManager } from "./session-manager";
 
 export interface AgentContext {
   userId: string;
@@ -32,12 +33,18 @@ function ensureInitialized(): void {
 }
 
 async function loadPromptContext(): Promise<PromptContext> {
-  const identity = getBlocksByLayer(2);
-  const semantic = getBlocksByLayer(3);
-  const working = getBlocksByLayer(4);
+  const identity = getBlocksByLayer(1);
+  const semantic = getBlocksByLayer(2);
+  const working = getBlocksByLayer(3);
   const journal = await getRecentJournal(40);
   const skills = await listSkillNames(config.skills.path);
   return { identity, semantic, working, journal, skills };
+}
+
+async function loadContinuationContext(sinceTs: string): Promise<ContinuationContext> {
+  const working = getBlocksByLayer(3);
+  const recentJournal = await getJournalEntriesSince(sinceTs);
+  return { working, recentJournal };
 }
 
 export async function invokeAgent(
@@ -63,14 +70,30 @@ export async function invokeAgent(
       content: userMessage,
     });
 
-    // Load prompt context from local memory
-    const promptContext = await loadPromptContext();
+    // Get session manager
+    const sm = getSessionManager();
+    const resumeSessionId = sm.getSessionId();
+    const sessionState = sm.getState();
 
-    const prompt = buildFullPrompt(promptContext, {
+    // Build prompt based on session state
+    let prompt: string;
+    const trigger = {
       type: "message",
       content: userMessage,
       from: context.username,
-    });
+    };
+
+    if (resumeSessionId && sessionState?.lastUsedAt) {
+      // Continuation: lighter prompt with just working memory + recent activity
+      console.log(`[agent] Continuing session ${resumeSessionId.slice(0, 8)}...`);
+      const continuationContext = await loadContinuationContext(sessionState.lastUsedAt);
+      prompt = buildContinuationPrompt(continuationContext, trigger);
+    } else {
+      // Fresh: full prompt with identity, semantic, working, journal
+      console.log("[agent] Starting fresh session");
+      const promptContext = await loadPromptContext();
+      prompt = buildFullPrompt(promptContext, trigger);
+    }
 
     // Use session budget or remaining daily budget (max $1.00 per message)
     const budget = sessionBudget ?? Math.min(getRemainingBudget(), 1.0);
@@ -78,6 +101,7 @@ export async function invokeAgent(
     const result = await executeWithYield({
       prompt,
       sessionBudget: budget,
+      resumeSessionId: resumeSessionId ?? undefined,
     });
 
     // Log execution complete (messages are logged by send_message tool)

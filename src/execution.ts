@@ -1,7 +1,8 @@
 import { getState, setState, shouldYield, isWrappingUp } from "./state";
-import { trackCost, formatBudgetStatus } from "./budget";
+import { trackCost, trackTokens, formatBudgetStatus } from "./budget";
 import { appendJournal } from "./memory/journal";
 import { ClaudeSession, getDefaultSession } from "./claude-session";
+import { getSessionManager } from "./session-manager";
 import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
@@ -10,6 +11,7 @@ export interface ExecutionResult {
   response: string;
   toolsUsed: string[];
   totalCost: number;
+  sessionId: string;
   yielded: boolean;
   yieldReason: string | null;
 }
@@ -18,6 +20,7 @@ export interface ExecutionOptions {
   prompt: string;
   sessionBudget: number;
   workingDir?: string;
+  resumeSessionId?: string; // If provided, resume this Claude CLI session
 }
 
 // Path to MCP config for Claude CLI
@@ -75,7 +78,7 @@ async function ensureMcpConfig(): Promise<void> {
 export async function executeWithYield(
   options: ExecutionOptions
 ): Promise<ExecutionResult> {
-  const { prompt, sessionBudget, workingDir } = options;
+  const { prompt, sessionBudget, workingDir, resumeSessionId } = options;
   const startTime = Date.now();
 
   // Initialize session tracking
@@ -84,8 +87,16 @@ export async function executeWithYield(
     session_spent: 0,
   });
 
+  // Log session state
+  const sm = getSessionManager();
+  const stats = sm.getStats();
+  const sessionMode = resumeSessionId ? "continue" : "fresh";
   console.log(
-    `[execution] Starting query: prompt ${(prompt.length / 1024).toFixed(1)}KB, budget $${sessionBudget.toFixed(2)}`
+    `[execution] Starting ${sessionMode} session: ` +
+      `prompt ${(prompt.length / 1024).toFixed(1)}KB, ` +
+      `budget $${sessionBudget.toFixed(2)}, ` +
+      `context ${stats.totalTokens.toLocaleString()}/${stats.threshold.toLocaleString()} tokens ` +
+      `(${(stats.utilization * 100).toFixed(1)}%)`
   );
 
   try {
@@ -112,15 +123,17 @@ export async function executeWithYield(
         response: "I was interrupted before I could start. Please try again.",
         toolsUsed: [],
         totalCost: 0,
+        sessionId: "",
         yielded: true,
         yieldReason: state.preempt_reason || "Preempted",
       };
     }
 
-    // Send message to Claude
+    // Send message to Claude (with optional session resumption)
     const result = await session.sendMessage(prompt, {
       timeoutMs: 300000, // 5 minutes
       mcpConfigPath: MCP_CONFIG_PATH,
+      resumeSessionId,
     });
 
     const totalTime = Date.now() - startTime;
@@ -136,12 +149,19 @@ export async function executeWithYield(
         response_preview: result.response.slice(0, 200),
       });
 
+      // Reset session on error (will start fresh next time)
+      if (resumeSessionId) {
+        console.log("[execution] Session error, will start fresh next time");
+        sm.reset();
+      }
+
       if (result.error === "timeout") {
         return {
           response:
             "I'm sorry, but the request timed out. Please try again with a simpler request.",
           toolsUsed: result.toolsUsed,
           totalCost: 0,
+          sessionId: "",
           yielded: true,
           yieldReason: "timeout",
         };
@@ -153,25 +173,44 @@ export async function executeWithYield(
     trackCost(actualCost);
     setState({ session_spent: actualCost });
 
-    // Log token usage if available
+    // Track token usage
     if (result.usage) {
+      trackTokens(result.usage.inputTokens, result.usage.outputTokens);
       console.log(
         `[execution] Tokens: ${result.usage.inputTokens} in, ${result.usage.outputTokens} out` +
           (result.usage.cacheReadTokens > 0
             ? `, ${result.usage.cacheReadTokens} cache read`
             : "")
       );
+
+      // Update session manager with token counts
+      if (result.sessionId) {
+        sm.updateAfterMessage({
+          sessionId: result.sessionId,
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
+          costUsd: actualCost,
+        });
+      }
     }
 
     return {
       response: result.response,
       toolsUsed: result.toolsUsed,
       totalCost: actualCost,
+      sessionId: result.sessionId,
       yielded: false,
       yieldReason: null,
     };
   } catch (error) {
     console.error("[execution] Error:", error);
+
+    // Reset session on error
+    if (resumeSessionId) {
+      console.log("[execution] Session error, resetting for fresh start");
+      sm.reset();
+    }
+
     await appendJournal({
       type: "execution_error",
       error: error instanceof Error ? error.message : String(error),

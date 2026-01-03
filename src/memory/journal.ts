@@ -61,6 +61,18 @@ export async function searchJournal(
   return entries.filter(filter);
 }
 
+export async function getJournalEntriesSince(sinceTs: string): Promise<JournalEntry[]> {
+  if (!existsSync(journalPath)) {
+    return [];
+  }
+
+  const content = await readFile(journalPath, "utf-8");
+  const lines = content.trim().split("\n").filter(Boolean);
+  const entries = lines.map((line) => JSON.parse(line) as JournalEntry);
+
+  return entries.filter((e) => e.ts > sinceTs);
+}
+
 export function formatJournalForPrompt(entries: JournalEntry[]): string {
   if (entries.length === 0) return "(no recent activity)";
 

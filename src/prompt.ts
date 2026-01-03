@@ -83,22 +83,76 @@ Use this to maintain continuity. You can see what you were working on and why.
 `;
 }
 
-export function buildFullPrompt(
-  context: PromptContext,
-  trigger: { type: string; content: string; from?: string }
-): string {
-  const systemPrompt = buildSystemPrompt(context);
+export interface TriggerInfo {
+  type: string;
+  content: string;
+  from?: string;
+}
 
-  let triggerText: string;
+function formatTrigger(trigger: TriggerInfo): string {
   if (trigger.type === "message" && trigger.from) {
-    triggerText = `[Message from ${trigger.from}]: ${trigger.content}`;
+    return `[Message from ${trigger.from}]: ${trigger.content}`;
   } else if (trigger.type === "perch") {
-    triggerText = `[Perch tick]: ${trigger.content}`;
+    return `[Perch tick]: ${trigger.content}`;
   } else if (trigger.type === "cron") {
-    triggerText = `[Scheduled job]: ${trigger.content}`;
-  } else {
-    triggerText = trigger.content;
+    return `[Scheduled job]: ${trigger.content}`;
+  }
+  return trigger.content;
+}
+
+/**
+ * Build full prompt for fresh sessions (~6K tokens)
+ * Includes: identity, semantic, working, journal, skills, trigger
+ */
+export function buildFullPrompt(context: PromptContext, trigger: TriggerInfo): string {
+  const systemPrompt = buildSystemPrompt(context);
+  const triggerText = formatTrigger(trigger);
+  return `${systemPrompt}\n\n---\n\n${triggerText}`;
+}
+
+/**
+ * Context for continuation prompts (lighter weight)
+ */
+export interface ContinuationContext {
+  working: Record<string, string>; // Current working memory state
+  recentJournal: JournalEntry[]; // Journal entries since last message
+}
+
+/**
+ * Build continuation prompt for resumed sessions (~500 tokens)
+ * Assumes identity, semantic, full journal history already in session context
+ * Only sends: current working state, recent activity, trigger
+ */
+export function buildContinuationPrompt(
+  context: ContinuationContext,
+  trigger: TriggerInfo
+): string {
+  const parts: string[] = [];
+
+  // Current working state (may have changed since last message)
+  parts.push("## Current State Update\n");
+
+  if (context.working.focus) {
+    parts.push(`### Focus\n${context.working.focus}\n`);
+  }
+  if (context.working.goals) {
+    parts.push(`### Goals\n${context.working.goals}\n`);
+  }
+  if (context.working.budget_daily_spent) {
+    parts.push(
+      `### Budget\nSpent today: $${context.working.budget_daily_spent} / $${context.working.budget_daily_cap || "5.00"}\n`
+    );
   }
 
-  return `${systemPrompt}\n\n---\n\n${triggerText}`;
+  // Recent activity since last message
+  if (context.recentJournal.length > 0) {
+    parts.push("## Recent Activity\n");
+    parts.push(formatJournalForPrompt(context.recentJournal));
+  }
+
+  // The trigger
+  parts.push("\n---\n");
+  parts.push(formatTrigger(trigger));
+
+  return parts.join("\n");
 }

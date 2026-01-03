@@ -7,8 +7,32 @@ import { initJournal } from "./memory/journal";
 import { getState, requestPreempt, clearPreempt } from "./state";
 import { checkDailyReset } from "./budget";
 import { getDefaultSession, destroyDefaultSession } from "./claude-session";
+import { existsSync, writeFileSync, mkdirSync } from "fs";
+import { dirname, join } from "path";
 
 validateConfig();
+
+// Ensure Claude config exists with auto-compact disabled
+// We manage context ourselves via session-manager.ts at 90% threshold
+function ensureClaudeConfig(): void {
+  const home = process.env.HOME || "/app/state";
+  const claudeDir = join(home, ".claude");
+  const configPath = join(claudeDir, "settings.json");
+
+  if (!existsSync(claudeDir)) {
+    mkdirSync(claudeDir, { recursive: true });
+  }
+
+  if (!existsSync(configPath)) {
+    const claudeConfig = {
+      autoCompact: false,
+    };
+    writeFileSync(configPath, JSON.stringify(claudeConfig, null, 2));
+    console.log(`[bud] Created Claude config at ${configPath}`);
+  }
+}
+
+ensureClaudeConfig();
 
 // Initialize memory at startup
 initDatabase(getDbPath());

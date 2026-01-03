@@ -25,6 +25,7 @@ export interface SessionResponse {
   response: string;
   toolsUsed: string[];
   totalCost: number;
+  sessionId: string; // Claude CLI session UUID for resumption
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -41,6 +42,7 @@ interface ClaudeJsonResponse {
   is_error: boolean;
   total_cost_usd: number;
   num_turns: number;
+  session_id: string; // Session UUID for resumption
   usage: {
     input_tokens: number;
     output_tokens: number;
@@ -106,6 +108,9 @@ export class ClaudeSession {
   /**
    * Send a message to Claude and get the response
    * Creates a new tmux window for each request, visible for debugging
+   *
+   * @param prompt - The message to send
+   * @param options.resumeSessionId - If provided, resumes this Claude CLI session
    */
   async sendMessage(
     prompt: string,
@@ -113,6 +118,7 @@ export class ClaudeSession {
       timeoutMs?: number;
       allowedTools?: string[];
       mcpConfigPath?: string;
+      resumeSessionId?: string; // Resume existing Claude CLI session
     } = {}
   ): Promise<SessionResponse> {
     const { timeoutMs = 300000 } = options;
@@ -134,6 +140,12 @@ export class ClaudeSession {
       "--output-format",
       "json",
     ];
+
+    // Resume existing session if provided
+    if (options.resumeSessionId) {
+      claudeArgs.push("--resume", options.resumeSessionId);
+      console.log(`[claude-session] Resuming session ${options.resumeSessionId.slice(0, 8)}...`);
+    }
 
     // Add MCP config if provided
     if (options.mcpConfigPath) {
@@ -228,6 +240,7 @@ export class ClaudeSession {
       response: "Request timed out",
       toolsUsed: [],
       totalCost: 0,
+      sessionId: "",
       error: "timeout",
     };
   }
@@ -266,6 +279,7 @@ export class ClaudeSession {
           response: json.result || rawOutput,
           toolsUsed: [],
           totalCost: json.total_cost_usd || 0,
+          sessionId: json.session_id || "",
           usage,
           error: json.subtype || "unknown_error",
         };
@@ -275,6 +289,7 @@ export class ClaudeSession {
         response: json.result || "",
         toolsUsed: [], // Tool info not in JSON output, could parse from result text
         totalCost: json.total_cost_usd || 0,
+        sessionId: json.session_id || "",
         usage,
       };
     } catch {
@@ -286,6 +301,7 @@ export class ClaudeSession {
           response: rawOutput || `Claude exited with code ${exitCode}`,
           toolsUsed: [],
           totalCost: 0,
+          sessionId: "",
           error: `exit_code_${exitCode}`,
         };
       }
@@ -294,6 +310,7 @@ export class ClaudeSession {
         response: rawOutput.trim(),
         toolsUsed: [],
         totalCost: 0,
+        sessionId: "",
       };
     }
   }

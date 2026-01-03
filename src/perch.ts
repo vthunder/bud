@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { config, validateConfig, getDbPath, getJournalPath } from "./config";
 import { initDatabase, getBlocksByLayer } from "./memory/blocks";
-import { initJournal, appendJournal, getRecentJournal } from "./memory/journal";
+import { initJournal, appendJournal, getRecentJournal, getJournalEntriesSince } from "./memory/journal";
 import { gatherPerchContext } from "./perch/context";
 import { selectWork, type WorkItem } from "./perch/work";
 import { startTyping, stopTyping } from "./discord/sender";
@@ -14,16 +14,23 @@ import {
   formatBudgetStatus,
 } from "./budget";
 import { executeWithYield } from "./execution";
-import { buildFullPrompt, type PromptContext } from "./prompt";
+import { buildFullPrompt, buildContinuationPrompt, type PromptContext, type ContinuationContext } from "./prompt";
 import { listSkillNames } from "./skills";
+import { getSessionManager } from "./session-manager";
 
 async function loadPromptContext(): Promise<PromptContext> {
-  const identity = getBlocksByLayer(2);
-  const semantic = getBlocksByLayer(3);
-  const working = getBlocksByLayer(4);
+  const identity = getBlocksByLayer(1);
+  const semantic = getBlocksByLayer(2);
+  const working = getBlocksByLayer(3);
   const journal = await getRecentJournal(40);
   const skills = await listSkillNames(config.skills.path);
   return { identity, semantic, working, journal, skills };
+}
+
+async function loadContinuationContext(sinceTs: string): Promise<ContinuationContext> {
+  const working = getBlocksByLayer(3);
+  const recentJournal = await getJournalEntriesSince(sinceTs);
+  return { working, recentJournal };
 }
 
 async function executeWork(work: WorkItem): Promise<void> {
@@ -49,9 +56,12 @@ async function executeWork(work: WorkItem): Promise<void> {
     budget: work.estimatedBudget,
   });
 
-  const promptContext = await loadPromptContext();
+  // Get session manager
+  const sm = getSessionManager();
+  const resumeSessionId = sm.getSessionId();
+  const sessionState = sm.getState();
 
-  // Build work-specific prompt
+  // Build work-specific prompt content
   const workPrompt = `You are Bud, doing autonomous work during a perch tick.
 
 ## Current Task
@@ -72,15 +82,30 @@ ${formatBudgetStatus()}
 
 Begin working on the task now.`;
 
-  const fullPrompt = buildFullPrompt(promptContext, {
+  const trigger = {
     type: "perch",
     content: workPrompt,
-  });
+  };
+
+  // Build prompt based on session state
+  let prompt: string;
+  if (resumeSessionId && sessionState?.lastUsedAt) {
+    // Continuation: lighter prompt with just working memory + recent activity
+    console.log(`[perch] Continuing session ${resumeSessionId.slice(0, 8)}...`);
+    const continuationContext = await loadContinuationContext(sessionState.lastUsedAt);
+    prompt = buildContinuationPrompt(continuationContext, trigger);
+  } else {
+    // Fresh: full prompt with identity, semantic, working, journal
+    console.log("[perch] Starting fresh session");
+    const promptContext = await loadPromptContext();
+    prompt = buildFullPrompt(promptContext, trigger);
+  }
 
   try {
     const result = await executeWithYield({
-      prompt: fullPrompt,
+      prompt,
       sessionBudget: work.estimatedBudget,
+      resumeSessionId: resumeSessionId ?? undefined,
     });
 
     // Log completion

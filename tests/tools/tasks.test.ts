@@ -33,7 +33,7 @@ describe("scheduleTask", () => {
 
   test("adds task to existing list", () => {
     mockGetBlock.mockReturnValue(
-      '[{"id":"existing","description":"Old task","dueAt":"2025-12-29T10:00:00Z"}]'
+      '[{"id":"existing","description":"Old task","timing":"2025-12-29T10:00:00Z","requiresWakeup":true,"lastRun":null}]'
     );
 
     const result = scheduleTask(
@@ -56,7 +56,7 @@ describe("cancelTask", () => {
 
   test("removes task by id", () => {
     mockGetBlock.mockReturnValue(
-      '[{"id":"task-1","description":"Task 1","dueAt":"2025-12-29T10:00:00Z"}]'
+      '[{"id":"task-1","description":"Task 1","timing":"2025-12-29T10:00:00Z","requiresWakeup":true,"lastRun":null}]'
     );
 
     const result = cancelTask("task-1");
@@ -80,7 +80,7 @@ describe("cancelTask", () => {
 describe("listScheduledTasks", () => {
   test("returns all tasks", () => {
     mockGetBlock.mockReturnValue(
-      '[{"id":"1","description":"Task 1","dueAt":"2025-12-29T10:00:00Z"}]'
+      '[{"id":"1","description":"Task 1","timing":"2025-12-29T10:00:00Z","requiresWakeup":true,"lastRun":null}]'
     );
 
     const result = listScheduledTasks();
@@ -98,7 +98,7 @@ describe("markTaskComplete", () => {
 
   test("removes a one-time task when completed", () => {
     mockGetBlock.mockReturnValue(
-      '[{"id":"task-1","description":"One-time task","dueAt":"2025-12-29T10:00:00Z"}]'
+      '[{"id":"task-1","description":"One-time task","timing":"2025-12-29T10:00:00Z","requiresWakeup":true,"lastRun":null}]'
     );
 
     const result = markTaskComplete("task-1");
@@ -109,9 +109,9 @@ describe("markTaskComplete", () => {
     expect(savedTasks).toHaveLength(0);
   });
 
-  test("advances a recurring task when completed", () => {
+  test("updates lastRun for a recurring task when completed", () => {
     mockGetBlock.mockReturnValue(
-      '[{"id":"task-1","description":"Daily standup","dueAt":"2025-12-29T10:00:00Z","recurring":"daily"}]'
+      '[{"id":"task-1","description":"Daily standup","timing":"daily","requiresWakeup":true,"lastRun":null}]'
     );
 
     const result = markTaskComplete("task-1");
@@ -120,8 +120,8 @@ describe("markTaskComplete", () => {
     const setCall = mockSetBlock.mock.calls[0];
     const savedTasks = JSON.parse(setCall[1]);
     expect(savedTasks).toHaveLength(1);
-    // Task should be advanced to next day
-    expect(savedTasks[0].dueAt).not.toBe("2025-12-29T10:00:00Z");
+    // Task should have lastRun updated
+    expect(savedTasks[0].lastRun).not.toBeNull();
   });
 
   test("returns not found for missing task", () => {
