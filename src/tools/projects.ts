@@ -1,6 +1,6 @@
 // src/tools/projects.ts
-import { tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
-import { z } from "zod";
+// Utility functions for project management (used by tests and potentially MCP server)
+
 import { readdir } from "fs/promises";
 import { join } from "path";
 import {
@@ -51,199 +51,20 @@ export async function updateProjectNotes(
 }
 
 /**
- * Create the MCP server for project tools
+ * Create a new project
  */
-export function createProjectToolsServer() {
-  const listProjectsTool = tool(
-    "list_projects",
-    "List all available projects in the projects directory",
-    {},
-    async () => {
-      try {
-        const projects = await listProjects();
-        if (projects.length === 0) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: "No projects found",
-              },
-            ],
-          };
-        }
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Available projects:\n${projects.map((p) => `- ${p}`).join("\n")}`,
-            },
-          ],
-        };
-      } catch (error) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Error listing projects: ${error}`,
-            },
-          ],
-        };
-      }
-    }
-  );
-
-  const getProjectTool = tool(
-    "get_project",
-    "Get details about a specific project including notes and goals",
-    {
-      name: z.string().describe("Project name (directory name)"),
-    },
-    async (args) => {
-      try {
-        const projectPath = join(getProjectsPath(), args.name);
-        if (!projectExists(projectPath)) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: `Project '${args.name}' not found`,
-              },
-            ],
-          };
-        }
-
-        const details = await getProjectDetails(projectPath);
-        const goalsText =
-          details.goals.length > 0
-            ? details.goals
-                .map(
-                  (g) =>
-                    `- [${g.status}] ${g.title} (P${g.priority})${g.deadline ? ` due: ${g.deadline}` : ""}`
-                )
-                .join("\n")
-            : "(no goals)";
-
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `## ${args.name}\n\n### Notes\n${details.notes ?? "(no notes)"}\n\n### Goals\n${goalsText}`,
-            },
-          ],
-        };
-      } catch (error) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Error reading project '${args.name}': ${error}`,
-            },
-          ],
-        };
-      }
-    }
-  );
-
-  const appendProjectNotesTool = tool(
-    "append_project_notes",
-    "Append content to a project's notes file",
-    {
-      name: z.string().describe("Project name (directory name)"),
-      content: z.string().describe("Content to append to the notes"),
-    },
-    async (args) => {
-      try {
-        const projectPath = join(getProjectsPath(), args.name);
-        if (!projectExists(projectPath)) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: `Project '${args.name}' not found`,
-              },
-            ],
-          };
-        }
-
-        await updateProjectNotes(projectPath, args.content);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Successfully appended content to ${args.name}/notes.md`,
-            },
-          ],
-        };
-      } catch (error) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Error updating project notes: ${error}`,
-            },
-          ],
-        };
-      }
-    }
-  );
-
-  const createProjectTool = tool(
-    "create_project",
-    "Create a new project with notes.md and goals.md files",
-    {
-      name: z.string().describe("Project name (will be used as directory name)"),
-    },
-    async (args) => {
-      try {
-        const projectPath = join(getProjectsPath(), args.name);
-        if (projectExists(projectPath)) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: `Project '${args.name}' already exists`,
-              },
-            ],
-          };
-        }
-
-        createProjectFiles(projectPath, args.name);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Created project '${args.name}' with notes.md and goals.md`,
-            },
-          ],
-        };
-      } catch (error) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Error creating project: ${error}`,
-            },
-          ],
-        };
-      }
-    }
-  );
-
-  return createSdkMcpServer({
-    name: "bud-projects",
-    version: "1.0.0",
-    tools: [
-      listProjectsTool,
-      getProjectTool,
-      appendProjectNotesTool,
-      createProjectTool,
-    ],
-  });
+export function createProject(name: string): void {
+  const projectPath = join(getProjectsPath(), name);
+  if (projectExists(projectPath)) {
+    throw new Error(`Project '${name}' already exists`);
+  }
+  createProjectFiles(projectPath, name);
 }
 
-export const PROJECT_TOOL_NAMES = [
-  "mcp__bud-projects__list_projects",
-  "mcp__bud-projects__get_project",
-  "mcp__bud-projects__append_project_notes",
-  "mcp__bud-projects__create_project",
-];
+/**
+ * Check if a project exists
+ */
+export function projectExistsUtil(name: string): boolean {
+  const projectPath = join(getProjectsPath(), name);
+  return projectExists(projectPath);
+}
