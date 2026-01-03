@@ -80,11 +80,10 @@ export async function invokeAgent(
       sessionBudget: budget,
     });
 
-    // Log response sent
+    // Log execution complete (messages are logged by send_message tool)
     await appendJournal({
-      type: "message_sent",
-      to: context.username,
-      content: result.response,
+      type: "execution_complete",
+      trigger_from: context.username,
       tools_used: result.toolsUsed,
       cost: result.totalCost,
       yielded: result.yielded,
@@ -93,8 +92,7 @@ export async function invokeAgent(
     setState({ status: "idle", current_task: null });
 
     return {
-      response:
-        result.response || "I apologize, but I couldn't generate a response.",
+      response: result.response,
       toolsUsed: result.toolsUsed,
       yielded: result.yielded,
     };

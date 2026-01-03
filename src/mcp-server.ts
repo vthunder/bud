@@ -36,6 +36,7 @@ import {
 import { readFile, readdir } from "fs/promises";
 import { join } from "path";
 import * as readline from "readline";
+import { sendMessage } from "./discord/sender";
 
 // Initialize database and journal
 initDatabase(getDbPath());
@@ -240,6 +241,22 @@ const tools = [
     name: "list_skills",
     description: "List all available skills with their descriptions",
     inputSchema: { type: "object", properties: {} },
+  },
+  // Discord tools
+  {
+    name: "send_message",
+    description:
+      "Send a message to the user via Discord. Use this to communicate with your owner. You can call this multiple times to send multiple messages.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        content: {
+          type: "string",
+          description: "The message content to send (max 2000 characters)",
+        },
+      },
+      required: ["content"],
+    },
   },
 ];
 
@@ -486,6 +503,42 @@ async function handleTool(
         return skills.length > 0 ? skills.join("\n") : "(no skills available)";
       } catch {
         return "(error reading skills)";
+      }
+    }
+
+    // Discord tools
+    case "send_message": {
+      const discordToken = config.discord.token;
+      const channelId = config.discord.channelId;
+
+      if (!discordToken || !channelId) {
+        return "Discord not configured (missing DISCORD_TOKEN or DISCORD_CHANNEL_ID)";
+      }
+
+      const content = args.content as string;
+      if (!content || content.trim().length === 0) {
+        return "Cannot send empty message";
+      }
+
+      // Discord has a 2000 character limit
+      const truncated =
+        content.length > 2000 ? content.slice(0, 1997) + "..." : content;
+
+      const result = await sendMessage({
+        token: discordToken,
+        channelId,
+        content: truncated,
+      });
+
+      if (result.success) {
+        await appendJournal({
+          type: "message_sent",
+          content: truncated.slice(0, 100),
+          message_id: result.messageId,
+        });
+        return `Message sent successfully (${truncated.length} chars)`;
+      } else {
+        return `Failed to send message: ${result.error}`;
       }
     }
 

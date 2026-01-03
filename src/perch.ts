@@ -4,7 +4,7 @@ import { initDatabase, getBlocksByLayer } from "./memory/blocks";
 import { initJournal, appendJournal, getRecentJournal } from "./memory/journal";
 import { gatherPerchContext } from "./perch/context";
 import { selectWork, type WorkItem } from "./perch/work";
-import { sendMessage, startTyping, stopTyping } from "./discord/sender";
+import { startTyping, stopTyping } from "./discord/sender";
 import { appendLog } from "./memory/logs";
 import { markTaskComplete } from "./tools/tasks";
 import { getState, setState } from "./state";
@@ -93,14 +93,11 @@ Begin working on the task now.`;
       yield_reason: result.yieldReason,
     });
 
-    // Send Discord update if there's something to report
-    if (result.response && result.response.length > 0) {
-      await sendMessage({
-        token: config.discord.token,
-        channelId: config.discord.channelId,
-        content: result.response.slice(0, 2000), // Discord limit
-      });
-    }
+    // The agent uses the send_message tool to communicate with Discord
+    // We don't auto-send responses here - the tool handles all messaging
+    console.log(
+      `[perch] Work completed: ${result.toolsUsed.length} tools used`
+    );
   } catch (error) {
     console.error("[perch] Work execution error:", error);
     await appendJournal({

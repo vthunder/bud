@@ -134,53 +134,24 @@ client.on(Events.MessageCreate, async (message: Message) => {
       discordClient: client,
     });
 
-    // Stop typing before sending reply
+    // Stop typing when done
     if (typingInterval) {
       clearInterval(typingInterval);
       typingInterval = null;
     }
 
-    if (result.response) {
-      // Discord has a 2000 char limit per message
-      const MAX_LENGTH = 2000;
-      if (result.response.length <= MAX_LENGTH) {
-        await message.reply(result.response);
-      } else {
-        // Split into chunks, preferring line breaks
-        const chunks: string[] = [];
-        let remaining = result.response;
-        while (remaining.length > 0) {
-          if (remaining.length <= MAX_LENGTH) {
-            chunks.push(remaining);
-            break;
-          }
-          // Find a good break point (newline or space)
-          let breakPoint = remaining.lastIndexOf("\n", MAX_LENGTH);
-          if (breakPoint < MAX_LENGTH / 2) {
-            breakPoint = remaining.lastIndexOf(" ", MAX_LENGTH);
-          }
-          if (breakPoint < MAX_LENGTH / 2) {
-            breakPoint = MAX_LENGTH; // Force break if no good point
-          }
-          chunks.push(remaining.slice(0, breakPoint));
-          remaining = remaining.slice(breakPoint).trimStart();
-        }
-        // Send first chunk as reply, rest as follow-ups
-        await message.reply(chunks[0]);
-        for (let i = 1; i < chunks.length; i++) {
-          if ("send" in message.channel) {
-            await message.channel.send(chunks[i]);
-          }
-        }
-      }
-    }
+    // The agent uses the send_message tool to communicate with Discord
+    // We don't auto-send responses here - the tool handles all messaging
+    console.log(
+      `[bud] Agent completed: ${result.toolsUsed.length} tools used, yielded=${result.yielded}`
+    );
 
     // Log the interaction (non-fatal if it fails)
     try {
       await appendLog("journal.jsonl", {
         timestamp,
         type: "interaction",
-        content: `User: ${message.content}\nBud: ${result.response}`,
+        content: `User: ${message.content}`,
         userId: message.author.id,
         toolsUsed: result.toolsUsed,
       });

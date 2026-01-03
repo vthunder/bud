@@ -40,6 +40,8 @@ async function ensureMcpConfig(): Promise<void> {
         env: {
           // Pass through required env vars
           STATE_PATH: process.env.STATE_PATH || "/app/state",
+          DISCORD_TOKEN: process.env.DISCORD_TOKEN || "",
+          DISCORD_CHANNEL_ID: process.env.DISCORD_CHANNEL_ID || "",
           GITHUB_TOKEN: process.env.GITHUB_TOKEN || "",
           GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "",
           GOOGLE_CALENDAR_IDS: process.env.GOOGLE_CALENDAR_IDS || "",
