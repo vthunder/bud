@@ -1,9 +1,9 @@
 import { formatJournalForPrompt, type JournalEntry } from "./memory/journal";
 
 export interface PromptContext {
-  identity: Record<string, string>;   // Layer 2: persona, values, style
-  semantic: Record<string, string>;   // Layer 3: owner_context, patterns
-  working: Record<string, string>;    // Layer 4: focus, goals, schedule
+  identity: Record<string, string>;   // Layer 1: persona, values, style
+  semantic: Record<string, string>;   // Layer 2: owner_context, patterns
+  working: Record<string, string>;    // Layer 3: focus, goals, schedule
   journal: JournalEntry[];            // Last 40 entries
   skills: string[];                   // Available skill names
 }
@@ -45,9 +45,10 @@ You have tools to persist information:
 - **block_history**: View past versions of a block
 
 Update memory when you learn something important. Blocks by layer:
-- Layer 2 (identity): persona, values - owner-controlled, you cannot modify
-- Layer 3 (semantic): owner_context, patterns - update when you learn new patterns
-- Layer 4 (working): focus, goals, schedule - update frequently as context changes
+- Layer 1 (identity): persona, values - owner-controlled, you cannot modify
+- Layer 2 (semantic): owner_context, patterns, system_guide - update when you learn new patterns
+- Layer 3 (working): focus, goals, schedule - update frequently as context changes
+- Layer 4 (long-term): projects/*, insights/*, scheduled_tasks.json, owner.md - unbounded storage (files, loaded on-demand)
 
 ## Available Skills
 
