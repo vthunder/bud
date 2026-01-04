@@ -118,25 +118,47 @@ export function getProjectsDir(): string {
   return join(getLongTermDir(), "projects");
 }
 
+/**
+ * List all project names (top-level directories in projects/).
+ * Projects are directories containing notes.md.
+ */
 export function listProjectNames(): string[] {
   const dir = getProjectsDir();
   if (!existsSync(dir)) return [];
 
-  return readdirSync(dir)
-    .filter((f) => f.endsWith(".md"))
-    .map((f) => f.replace(/\.md$/, ""));
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((f) => f.isDirectory())
+    .map((f) => f.name);
 }
 
+/**
+ * List subprojects of a parent project.
+ */
+export function listSubprojects(parentName: string): string[] {
+  const parentDir = join(getProjectsDir(), parentName);
+  if (!existsSync(parentDir)) return [];
+
+  return readdirSync(parentDir, { withFileTypes: true })
+    .filter((f) => f.isDirectory() && existsSync(join(parentDir, f.name, "notes.md")))
+    .map((f) => f.name);
+}
+
+/**
+ * Get project content (notes.md). Supports nested paths like "avail/subproject".
+ */
 export function getProjectContent(name: string): string | null {
-  const path = join(getProjectsDir(), `${name}.md`);
-  if (!existsSync(path)) return null;
-  return readFileSync(path, "utf-8");
+  const notesPath = join(getProjectsDir(), name, "notes.md");
+  if (!existsSync(notesPath)) return null;
+  return readFileSync(notesPath, "utf-8");
 }
 
+/**
+ * Save project content (notes.md). Creates directory if needed.
+ */
 export function saveProjectContent(name: string, content: string): void {
-  const dir = getProjectsDir();
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
+  const projectDir = join(getProjectsDir(), name);
+  if (!existsSync(projectDir)) {
+    mkdirSync(projectDir, { recursive: true });
   }
-  writeFileSync(join(dir, `${name}.md`), content);
+  writeFileSync(join(projectDir, "notes.md"), content);
 }

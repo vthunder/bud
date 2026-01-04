@@ -24,6 +24,7 @@ import {
   listSkillNames,
   getSkillContent,
   listProjectNames,
+  listSubprojects,
   getProjectContent,
   saveProjectContent,
 } from "./memory/long_term";
@@ -105,16 +106,27 @@ const tools = [
   // Project tools
   {
     name: "list_projects",
-    description: "List all project names",
+    description: "List all top-level project names (directories in 3_long_term/projects/)",
     inputSchema: { type: "object", properties: {} },
   },
   {
-    name: "get_project",
-    description: "Read a project file",
+    name: "list_subprojects",
+    description: "List subprojects within a parent project (e.g., avail has 49 subprojects)",
     inputSchema: {
       type: "object",
       properties: {
-        name: { type: "string", description: "Project name" },
+        parent: { type: "string", description: "Parent project name (e.g., 'avail')" },
+      },
+      required: ["parent"],
+    },
+  },
+  {
+    name: "get_project",
+    description: "Read a project's notes.md. Use 'name' for top-level or 'parent/subproject' for nested.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Project name or path (e.g., 'bud' or 'avail/monad-support')" },
       },
       required: ["name"],
     },
@@ -356,6 +368,11 @@ async function handleTool(
     case "list_projects": {
       const projects = listProjectNames();
       return projects.length > 0 ? projects.join("\n") : "(no projects)";
+    }
+
+    case "list_subprojects": {
+      const subprojects = listSubprojects(args.parent as string);
+      return subprojects.length > 0 ? subprojects.join("\n") : `(no subprojects in '${args.parent}')`;
     }
 
     case "get_project": {

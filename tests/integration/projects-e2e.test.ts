@@ -3,11 +3,18 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import { config } from "../../src/config";
 import { setDailyCap, resetBudgetState, getRemainingBudget } from "../../src/budget";
-import { createProject } from "../../src/projects/files";
 
-const TEST_PROJECTS = join(config.state.path, "3_long_term", "projects");
+// Use local test directory instead of config
+const TEST_STATE_PATH = join(import.meta.dir, ".test-e2e-state");
+const TEST_PROJECTS = join(TEST_STATE_PATH, "3_long_term", "projects");
+
+// Direct project creation (bypasses module that uses config)
+function createProject(projectPath: string, name: string): void {
+  mkdirSync(projectPath, { recursive: true });
+  writeFileSync(join(projectPath, "notes.md"), `# ${name}\n\nProject notes go here.\n`);
+  writeFileSync(join(projectPath, "log.jsonl"), "");
+}
 
 // Direct focus implementation (bypasses module system)
 interface FocusProject {
@@ -23,11 +30,11 @@ interface FocusConfig {
 }
 
 function getFocusPath(): string {
-  return join(config.state.path, "3_long_term", "focus.json");
+  return join(TEST_STATE_PATH, "3_long_term", "focus.json");
 }
 
 function ensureLongTermDir(): void {
-  const dir = join(config.state.path, "3_long_term");
+  const dir = join(TEST_STATE_PATH, "3_long_term");
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
@@ -102,31 +109,25 @@ function selectWork(scheduledTasks: any[]): WorkItem | null {
 }
 
 beforeEach(() => {
+  // Clean any previous test state
+  if (existsSync(TEST_STATE_PATH)) {
+    rmSync(TEST_STATE_PATH, { recursive: true });
+  }
+
   // Create required directories
   mkdirSync(TEST_PROJECTS, { recursive: true });
-  mkdirSync(join(config.state.path, "2_working"), { recursive: true });
+  mkdirSync(join(TEST_STATE_PATH, "2_working"), { recursive: true });
   ensureLongTermDir();
 
   // Set up budget (in-memory)
   resetBudgetState();
   setDailyCap(10.0);
-
-  // Clean up focus.json before each test
-  const focusPath = getFocusPath();
-  if (existsSync(focusPath)) {
-    rmSync(focusPath);
-  }
 });
 
 afterEach(() => {
-  // Clean up test project directory
-  if (existsSync(TEST_PROJECTS)) {
-    rmSync(TEST_PROJECTS, { recursive: true, force: true });
-  }
-  // Clean up focus.json
-  const focusPath = getFocusPath();
-  if (existsSync(focusPath)) {
-    rmSync(focusPath);
+  // Clean up entire test state directory
+  if (existsSync(TEST_STATE_PATH)) {
+    rmSync(TEST_STATE_PATH, { recursive: true });
   }
   // Reset budget state
   resetBudgetState();

@@ -3,21 +3,23 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import { config } from "../../src/config";
+
+// Use local test directory instead of config
+const TEST_STATE_PATH = join(import.meta.dir, ".test-focus-state");
 
 // Direct implementation (bypasses module system for testing)
 const MAX_FOCUS_PROJECTS = 3;
 
 function getFocusPath(): string {
-  return join(config.state.path, "3_long_term", "focus.json");
+  return join(TEST_STATE_PATH, "3_long_term", "focus.json");
 }
 
 function getStatePath(): string {
-  return config.state.path;
+  return TEST_STATE_PATH;
 }
 
 function ensureLongTermDir(): void {
-  const dir = join(config.state.path, "3_long_term");
+  const dir = join(TEST_STATE_PATH, "3_long_term");
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
@@ -97,9 +99,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  const focusPath = getFocusPath();
-  if (existsSync(focusPath)) {
-    rmSync(focusPath);
+  // Clean up test directory
+  if (existsSync(TEST_STATE_PATH)) {
+    rmSync(TEST_STATE_PATH, { recursive: true });
   }
 });
 
