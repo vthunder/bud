@@ -1,70 +1,89 @@
-import { getBlock, setBlock } from "./memory/blocks";
+/**
+ * Budget Tracking (In-memory only)
+ *
+ * Tracks daily budget usage. Resets on process restart.
+ * This is intentional - budget tracking doesn't need persistence.
+ */
+
+interface BudgetState {
+  dailyCap: number;
+  dailySpent: number;
+  dailyInputTokens: number;
+  dailyOutputTokens: number;
+  lastResetDate: string | null;
+}
+
+const DEFAULT_STATE: BudgetState = {
+  dailyCap: 0,
+  dailySpent: 0,
+  dailyInputTokens: 0,
+  dailyOutputTokens: 0,
+  lastResetDate: null,
+};
+
+// In-memory state - resets on restart
+let state: BudgetState = { ...DEFAULT_STATE };
 
 export function getDailyCap(): number {
-  const raw = getBlock("budget_daily_cap");
-  return raw ? parseFloat(raw) : 0;
+  return state.dailyCap;
 }
 
 export function setDailyCap(amount: number): void {
-  setBlock("budget_daily_cap", amount.toFixed(4), 4);
+  state.dailyCap = amount;
 }
 
 export function getDailySpent(): number {
-  const raw = getBlock("budget_daily_spent");
-  return raw ? parseFloat(raw) : 0;
+  return state.dailySpent;
 }
 
 export function setDailySpent(amount: number): void {
-  setBlock("budget_daily_spent", amount.toFixed(4), 4);
+  state.dailySpent = amount;
 }
 
 export function trackCost(amount: number): void {
-  const current = getDailySpent();
-  setDailySpent(current + amount);
+  state.dailySpent += amount;
 }
 
 export function getRemainingBudget(): number {
-  return getDailyCap() - getDailySpent();
+  return state.dailyCap - state.dailySpent;
 }
 
 // Token tracking (for context management and detailed logging)
 export function getDailyInputTokens(): number {
-  const raw = getBlock("budget_daily_input_tokens");
-  return raw ? parseInt(raw, 10) : 0;
+  return state.dailyInputTokens;
 }
 
 export function getDailyOutputTokens(): number {
-  const raw = getBlock("budget_daily_output_tokens");
-  return raw ? parseInt(raw, 10) : 0;
+  return state.dailyOutputTokens;
 }
 
 export function setDailyInputTokens(tokens: number): void {
-  setBlock("budget_daily_input_tokens", tokens.toString(), 3);
+  state.dailyInputTokens = tokens;
 }
 
 export function setDailyOutputTokens(tokens: number): void {
-  setBlock("budget_daily_output_tokens", tokens.toString(), 3);
+  state.dailyOutputTokens = tokens;
 }
 
 export function trackTokens(inputTokens: number, outputTokens: number): void {
-  const currentInput = getDailyInputTokens();
-  const currentOutput = getDailyOutputTokens();
-  setDailyInputTokens(currentInput + inputTokens);
-  setDailyOutputTokens(currentOutput + outputTokens);
+  state.dailyInputTokens += inputTokens;
+  state.dailyOutputTokens += outputTokens;
 }
 
 export function getDailyTokens(): { input: number; output: number; total: number } {
-  const input = getDailyInputTokens();
-  const output = getDailyOutputTokens();
-  return { input, output, total: input + output };
+  return {
+    input: state.dailyInputTokens,
+    output: state.dailyOutputTokens,
+    total: state.dailyInputTokens + state.dailyOutputTokens,
+  };
 }
 
 export function getLastResetDate(): string | null {
-  return getBlock("budget_last_reset");
+  return state.lastResetDate;
 }
 
 export function setLastResetDate(date: string): void {
-  setBlock("budget_last_reset", date, 4);
+  state.lastResetDate = date;
 }
 
 export function checkDailyReset(timezone: string = "Europe/Berlin"): boolean {
@@ -73,18 +92,16 @@ export function checkDailyReset(timezone: string = "Europe/Berlin"): boolean {
     timeZone: timezone,
     year: "numeric",
     month: "2-digit",
-    day: "2-digit"
+    day: "2-digit",
   });
   const todayInTz = formatter.format(now); // YYYY-MM-DD
 
-  const lastReset = getLastResetDate();
-
-  if (lastReset !== todayInTz) {
-    // New day in Berlin - reset all counters
-    setDailySpent(0);
-    setDailyInputTokens(0);
-    setDailyOutputTokens(0);
-    setLastResetDate(todayInTz);
+  if (state.lastResetDate !== todayInTz) {
+    // New day - reset all counters
+    state.dailySpent = 0;
+    state.dailyInputTokens = 0;
+    state.dailyOutputTokens = 0;
+    state.lastResetDate = todayInTz;
     return true;
   }
 
@@ -92,8 +109,15 @@ export function checkDailyReset(timezone: string = "Europe/Berlin"): boolean {
 }
 
 export function formatBudgetStatus(): string {
-  const cap = getDailyCap();
-  const spent = getDailySpent();
+  const cap = state.dailyCap;
+  const spent = state.dailySpent;
   const remaining = getRemainingBudget();
   return `$${spent.toFixed(2)} / $${cap.toFixed(2)} (${remaining.toFixed(2)} remaining)`;
+}
+
+/**
+ * Reset all budget state (for testing)
+ */
+export function resetBudgetState(): void {
+  state = { ...DEFAULT_STATE };
 }

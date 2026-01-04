@@ -1,19 +1,17 @@
 import { Client, Events, GatewayIntentBits, Message } from "discord.js";
-import { config, validateConfig, getDbPath, getJournalPath } from "./config";
+import { config, validateConfig } from "./config";
 import { invokeAgent } from "./agent";
 import { appendLog } from "./memory/logs";
-import { initDatabase } from "./memory/blocks";
-import { initJournal } from "./memory/journal";
 import { getState, requestPreempt, clearPreempt } from "./state";
 import { checkDailyReset } from "./budget";
 import { getDefaultSession, destroyDefaultSession } from "./claude-session";
 import { existsSync, writeFileSync, mkdirSync } from "fs";
-import { dirname, join } from "path";
+import { join } from "path";
 
 validateConfig();
 
 // Ensure Claude config exists with auto-compact disabled
-// We manage context ourselves via session-manager.ts at 90% threshold
+// We manage context ourselves via session-manager.ts at 25% threshold
 function ensureClaudeConfig(): void {
   const home = process.env.HOME || "/app/state";
   const claudeDir = join(home, ".claude");
@@ -33,10 +31,6 @@ function ensureClaudeConfig(): void {
 }
 
 ensureClaudeConfig();
-
-// Initialize memory at startup
-initDatabase(getDbPath());
-initJournal(getJournalPath());
 
 const client = new Client({
   intents: [

@@ -1,16 +1,13 @@
 /**
- * Session Manager for Claude Code sessions
+ * Session Manager for Claude Code sessions (In-memory only)
  *
  * Manages session lifecycle to enable prompt reuse:
  * - Fresh sessions get full prompt (~6K tokens)
  * - Continuation sessions get minimal prompt (~500 tokens)
- * - Sessions reset at 90% context capacity to avoid auto-compaction
+ * - Sessions reset at 25% context capacity to keep cache costs low
+ *
+ * State resets on process restart (intentional - sessions shouldn't persist).
  */
-
-import { getBlock, setBlock } from "./memory/blocks";
-
-const SESSION_STATE_BLOCK = "claude_session_state";
-const SESSION_STATE_LAYER = 3; // Working memory
 
 export interface SessionState {
   sessionId: string | null;
@@ -41,29 +38,19 @@ export class SessionManager {
   }
 
   /**
-   * Load session state from persistent storage
+   * Load session state - no-op for in-memory implementation
+   * Kept for API compatibility
    */
   load(): void {
-    const raw = getBlock(SESSION_STATE_BLOCK);
-    if (raw) {
-      try {
-        this.state = JSON.parse(raw) as SessionState;
-      } catch {
-        console.warn("[session-manager] Failed to parse session state, starting fresh");
-        this.state = null;
-      }
-    }
+    // No persistence - state is already in memory
   }
 
   /**
-   * Save session state to persistent storage
+   * Save session state - no-op for in-memory implementation
+   * Kept for API compatibility
    */
   save(): void {
-    if (this.state) {
-      setBlock(SESSION_STATE_BLOCK, JSON.stringify(this.state), SESSION_STATE_LAYER);
-    } else {
-      setBlock(SESSION_STATE_BLOCK, "", SESSION_STATE_LAYER);
-    }
+    // No persistence - state lives only in memory
   }
 
   /**
@@ -129,8 +116,6 @@ export class SessionManager {
           `(${(stats.utilization * 100).toFixed(1)}%)`
       );
     }
-
-    this.save();
   }
 
   /**
@@ -145,7 +130,6 @@ export class SessionManager {
       );
     }
     this.state = null;
-    this.save();
   }
 
   /**
@@ -187,7 +171,6 @@ let instance: SessionManager | null = null;
 export function getSessionManager(config?: Partial<SessionManagerConfig>): SessionManager {
   if (!instance) {
     instance = new SessionManager(config);
-    instance.load();
   }
   return instance;
 }

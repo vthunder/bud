@@ -1,40 +1,46 @@
-import { formatJournalForPrompt, type JournalEntry } from "./memory/journal";
+import { loadCoreMemory, formatCoreForPrompt, type CoreMemory } from "./memory/core";
+import {
+  loadWorkingMemory,
+  formatJournalForPrompt,
+  type JournalEntry,
+  type WorkingMemory,
+} from "./memory/working";
+import { listSkillNames } from "./memory/long_term";
 
 export interface PromptContext {
-  identity: Record<string, string>;   // Layer 1: persona, values, style
-  semantic: Record<string, string>;   // Layer 2: owner_context, patterns
-  working: Record<string, string>;    // Layer 3: focus, goals, schedule
-  journal: JournalEntry[];            // Last 40 entries
-  skills: string[];                   // Available skill names
+  core: CoreMemory;
+  working: WorkingMemory;
+  skills: string[];
+}
+
+/**
+ * Load all context needed for a fresh prompt
+ */
+export function loadPromptContext(journalCount: number = 20): PromptContext {
+  return {
+    core: loadCoreMemory(),
+    working: loadWorkingMemory(journalCount),
+    skills: listSkillNames(),
+  };
 }
 
 export function buildSystemPrompt(context: PromptContext): string {
-  const { identity, semantic, working, journal, skills } = context;
+  const { core, working, skills } = context;
+
+  const coreSection = formatCoreForPrompt(core);
 
   return `You are Bud, a personal AI agent and second brain.
 You maintain persistent memory across conversations. If you didn't write it down, you won't remember it.
 
-## Identity
-
-${identity.persona || "Helpful but not sycophantic. Direct communication style."}
-
-${identity.values ? `### Values\n${identity.values}` : ""}
-
-${identity.communication_style ? `### Communication Style\n${identity.communication_style}` : ""}
-
-## Context
-
-${semantic.owner_context ? `### About Your Owner\n${semantic.owner_context}` : ""}
-
-${semantic.patterns ? `### Learned Patterns\n${semantic.patterns}` : ""}
+${coreSection}
 
 ## Current State
 
 ${working.focus ? `### Current Focus\n${working.focus}` : "No specific focus set."}
 
-${working.goals ? `### Active Goals\n${working.goals}` : ""}
+${working.inbox ? `### Inbox\n${working.inbox}` : ""}
 
-${working.schedule ? `### Schedule\n${working.schedule}` : ""}
+${working.commitments ? `### Commitments\n${working.commitments}` : ""}
 
 ## Communication
 
@@ -46,23 +52,18 @@ To message your owner, use the **send_message** tool. This is your ONLY way to c
 
 Do NOT assume your text output will be shown to the user. Only send_message reaches them.
 
-## Memory Tools
+## Memory Structure
 
-You have tools to persist information:
-- **get_block**: Read a memory block
-- **set_block**: Update a memory block (creates new version, history preserved)
-- **list_blocks**: See all blocks
-- **block_history**: View past versions of a block
+Your memory is organized into three layers:
+- **Core (1_core/)**: Identity, values, owner context, system guide - read-only at runtime
+- **Working (2_working/)**: Focus, inbox, commitments, journal - changes during operation
+- **Long-term (3_long_term/)**: Projects, skills, scheduled tasks - accessed on-demand
 
-Update memory when you learn something important. Blocks by layer:
-- Layer 1 (identity): persona, values - owner-controlled, you cannot modify
-- Layer 2 (semantic): owner_context, patterns, system_guide - update when you learn new patterns
-- Layer 3 (working): focus, goals, schedule - update frequently as context changes
-- Layer 4 (long-term): projects/*, insights/*, scheduled_tasks.json, owner.md - unbounded storage (files, loaded on-demand)
+Update working memory when context changes. Core memory is edited by your owner.
 
 ## Available Skills
 
-${skills.length > 0 ? skills.map(s => `- ${s}`).join("\n") : "(no skills loaded)"}
+${skills.length > 0 ? skills.map((s) => `- ${s}`).join("\n") : "(no skills loaded)"}
 
 Use **invoke_skill** to load a skill's full instructions before following it.
 
@@ -70,7 +71,7 @@ Use **invoke_skill** to load a skill's full instructions before following it.
 
 This is your recent activity (train of thought across invocations):
 
-${formatJournalForPrompt(journal)}
+${formatJournalForPrompt(working.recentJournal)}
 
 Use this to maintain continuity. You can see what you were working on and why.
 
@@ -102,7 +103,7 @@ function formatTrigger(trigger: TriggerInfo): string {
 
 /**
  * Build full prompt for fresh sessions (~6K tokens)
- * Includes: identity, semantic, working, journal, skills, trigger
+ * Includes: core, working, skills, trigger
  */
 export function buildFullPrompt(context: PromptContext, trigger: TriggerInfo): string {
   const systemPrompt = buildSystemPrompt(context);
@@ -114,14 +115,14 @@ export function buildFullPrompt(context: PromptContext, trigger: TriggerInfo): s
  * Context for continuation prompts (lighter weight)
  */
 export interface ContinuationContext {
-  working: Record<string, string>; // Current working memory state
-  recentJournal: JournalEntry[]; // Journal entries since last message
+  focus: string;
+  recentJournal: JournalEntry[];
 }
 
 /**
  * Build continuation prompt for resumed sessions (~500 tokens)
- * Assumes identity, semantic, full journal history already in session context
- * Only sends: current working state, recent activity, trigger
+ * Assumes core, full journal history already in session context
+ * Only sends: current focus, recent activity, trigger
  */
 export function buildContinuationPrompt(
   context: ContinuationContext,
@@ -132,16 +133,8 @@ export function buildContinuationPrompt(
   // Current working state (may have changed since last message)
   parts.push("## Current State Update\n");
 
-  if (context.working.focus) {
-    parts.push(`### Focus\n${context.working.focus}\n`);
-  }
-  if (context.working.goals) {
-    parts.push(`### Goals\n${context.working.goals}\n`);
-  }
-  if (context.working.budget_daily_spent) {
-    parts.push(
-      `### Budget\nSpent today: $${context.working.budget_daily_spent} / $${context.working.budget_daily_cap || "5.00"}\n`
-    );
+  if (context.focus) {
+    parts.push(`### Focus\n${context.focus}\n`);
   }
 
   // Recent activity since last message

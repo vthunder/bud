@@ -1,43 +1,54 @@
 // tests/perch/work.test.ts
-import { describe, expect, test, mock, beforeEach } from "bun:test";
+import { describe, expect, test, mock, beforeEach, afterAll } from "bun:test";
 
 // Mock dependencies
-const mockGetBlock = mock((name: string) => {
-  switch (name) {
-    case "budget_daily_cap": return "10.00";
-    case "budget_daily_spent": return "0.00";
-    default: return null;
-  }
-});
-
-mock.module("../../src/memory/blocks", () => ({
-  getBlock: mockGetBlock,
-  setBlock: mock(() => {}),
-  initDatabase: mock(() => {}),
-  closeDatabase: mock(() => {}),
+const mockSearchJournal = mock(() => []);
+mock.module("../../src/memory/working", () => ({
+  searchJournal: mockSearchJournal,
+  getFocus: mock(() => ""),
 }));
 
-const mockSearchJournal = mock(() => Promise.resolve([]));
-mock.module("../../src/memory/journal", () => ({
-  searchJournal: mockSearchJournal,
-  initJournal: mock(() => {}),
+const mockGetRemainingBudget = mock(() => 10.0);
+mock.module("../../src/budget", () => ({
+  getRemainingBudget: mockGetRemainingBudget,
+}));
+
+const mockGetFocus = mock(() => null);
+const mockGetFocusedProjects = mock(() => []);
+const mockAddProjectToFocus = mock(() => {});
+const mockRemoveProjectFromFocus = mock(() => {});
+const mockSetFocus = mock(() => {});
+mock.module("../../src/projects/focus", () => ({
+  getFocus: mockGetFocus,
+  getFocusedProjects: mockGetFocusedProjects,
+  addProjectToFocus: mockAddProjectToFocus,
+  removeProjectFromFocus: mockRemoveProjectFromFocus,
+  setFocus: mockSetFocus,
 }));
 
 // Now import the module being tested
 const { selectWork } = await import("../../src/perch/work");
 
+// Store original modules to restore later
+const originalFocusModule = "../../src/projects/focus";
+
+afterAll(() => {
+  // Clear mock so other tests can use the real module
+  mock.restore();
+});
+
 describe("selectWork with focus", () => {
   beforeEach(() => {
-    mockGetBlock.mockClear();
     mockSearchJournal.mockClear();
+    mockGetRemainingBudget.mockClear();
+    mockGetFocus.mockClear();
+    mockGetFocusedProjects.mockClear();
+
     // Reset to default behavior
-    mockGetBlock.mockImplementation((name: string) => {
-      switch (name) {
-        case "budget_daily_cap": return "10.00";
-        case "budget_daily_spent": return "0.00";
-        default: return null;
-      }
-    });
+    mockGetRemainingBudget.mockReturnValue(10.0);
+    mockGetFocus.mockReturnValue(null);
+    mockGetFocusedProjects.mockReturnValue([]);
+    mockSearchJournal.mockReturnValue([]);
   });
 
   test("returns skill-based work when focus is set", async () => {
@@ -48,14 +59,8 @@ describe("selectWork with focus", () => {
       updated_at: new Date().toISOString(),
     };
 
-    mockGetBlock.mockImplementation((name: string) => {
-      switch (name) {
-        case "budget_daily_cap": return "10.00";
-        case "budget_daily_spent": return "0.00";
-        case "focus": return JSON.stringify(focus);
-        default: return null;
-      }
-    });
+    mockGetFocus.mockReturnValue(focus);
+    mockGetFocusedProjects.mockReturnValue(focus.projects);
 
     const work = await selectWork([]);
 
@@ -76,14 +81,8 @@ describe("selectWork with focus", () => {
       updated_at: new Date().toISOString(),
     };
 
-    mockGetBlock.mockImplementation((name: string) => {
-      switch (name) {
-        case "budget_daily_cap": return "10.00";
-        case "budget_daily_spent": return "0.00";
-        case "focus": return JSON.stringify(focus);
-        default: return null;
-      }
-    });
+    mockGetFocus.mockReturnValue(focus);
+    mockGetFocusedProjects.mockReturnValue(focus.projects);
 
     const work = await selectWork([]);
 
@@ -93,26 +92,11 @@ describe("selectWork with focus", () => {
     expect(work!.context).toContain("Backend work");
   });
 
-  test("falls back to legacy goals when no focus", async () => {
-    mockGetBlock.mockImplementation((name: string) => {
-      switch (name) {
-        case "budget_daily_cap": return "10.00";
-        case "budget_daily_spent": return "0.00";
-        case "goals": return "- Finish feature X\n- Review PR";
-        default: return null;
-      }
-    });
+  test("falls back to maintenance when no focus", async () => {
+    // No focus set, no recent sync - should check maintenance
+    mockGetFocus.mockReturnValue(null);
+    mockSearchJournal.mockReturnValue([]); // No sync entries
 
-    const work = await selectWork([]);
-
-    expect(work).not.toBeNull();
-    expect(work!.type).toBe("goal");
-    expect(work!.id).toBe("goal-work");
-    expect(work!.context).toContain("Finish feature X");
-  });
-
-  test("falls back to maintenance when no focus and no goals", async () => {
-    // No focus, no goals set - should check maintenance
     const work = await selectWork([]);
 
     // Will be maintenance because hoursSinceSync > 24 (no sync entries)
@@ -126,14 +110,8 @@ describe("selectWork with focus", () => {
       updated_at: new Date().toISOString(),
     };
 
-    mockGetBlock.mockImplementation((name: string) => {
-      switch (name) {
-        case "budget_daily_cap": return "10.00";
-        case "budget_daily_spent": return "0.00";
-        case "focus": return JSON.stringify(focus);
-        default: return null;
-      }
-    });
+    mockGetFocus.mockReturnValue(focus);
+    mockGetFocusedProjects.mockReturnValue(focus.projects);
 
     const scheduledTasks = [
       { id: "task-1", description: "Daily standup", context: "Team meeting" },
@@ -147,16 +125,23 @@ describe("selectWork with focus", () => {
   });
 
   test("returns null when budget exhausted", async () => {
-    mockGetBlock.mockImplementation((name: string) => {
-      switch (name) {
-        case "budget_daily_cap": return "5.00";
-        case "budget_daily_spent": return "5.00"; // No remaining budget
-        default: return null;
-      }
-    });
+    mockGetRemainingBudget.mockReturnValue(0);
 
     const work = await selectWork([]);
 
+    expect(work).toBeNull();
+  });
+
+  test("returns null when recent sync exists and no focus", async () => {
+    mockGetFocus.mockReturnValue(null);
+    // Recent sync entry exists
+    mockSearchJournal.mockReturnValue([
+      { ts: new Date().toISOString(), type: "sync" }
+    ]);
+
+    const work = await selectWork([]);
+
+    // Should return null since sync was recent and no focus/scheduled tasks
     expect(work).toBeNull();
   });
 });

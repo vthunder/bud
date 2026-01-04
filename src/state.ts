@@ -1,4 +1,9 @@
-import { getBlock, setBlock } from "./memory/blocks";
+/**
+ * Runtime State (In-memory only)
+ *
+ * Transient state for the current process. Not persisted to disk.
+ * Resets on restart.
+ */
 
 export interface BudState {
   status: "idle" | "working" | "wrapping_up";
@@ -20,20 +25,15 @@ const DEFAULT_STATE: BudState = {
   preempt_reason: null,
 };
 
+// In-memory state - no persistence
+let currentState: BudState = { ...DEFAULT_STATE };
+
 export function getState(): BudState {
-  const raw = getBlock("bud_state");
-  if (!raw) return { ...DEFAULT_STATE };
-  try {
-    return { ...DEFAULT_STATE, ...JSON.parse(raw) };
-  } catch {
-    return { ...DEFAULT_STATE };
-  }
+  return { ...currentState };
 }
 
 export function setState(updates: Partial<BudState>): void {
-  const current = getState();
-  const newState = { ...current, ...updates };
-  setBlock("bud_state", JSON.stringify(newState), 4);
+  currentState = { ...currentState, ...updates };
 }
 
 export function requestPreempt(reason: string): void {

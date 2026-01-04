@@ -2,7 +2,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
-import { initDatabase, closeDatabase } from "../../src/memory/blocks";
 
 // We'll test the tool functions directly
 import {
@@ -12,12 +11,10 @@ import {
 } from "../../src/tools/projects";
 
 const TEST_DIR = join(import.meta.dir, ".test-project-tools");
-const TEST_DB = join(TEST_DIR, "test.db");
 const TEST_PROJECTS = join(TEST_DIR, "projects");
 
 beforeEach(() => {
   mkdirSync(TEST_PROJECTS, { recursive: true });
-  initDatabase(TEST_DB);
 
   // Create a test project
   const projPath = join(TEST_PROJECTS, "test-proj");
@@ -27,7 +24,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  closeDatabase();
   rmSync(TEST_DIR, { recursive: true, force: true });
 });
 

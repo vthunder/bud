@@ -1,24 +1,23 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach } from "bun:test";
 import {
   getState,
   setState,
   requestPreempt,
   clearPreempt,
   shouldYield,
-  type BudState
 } from "../src/state";
-import { initDatabase, closeDatabase } from "../src/memory/blocks";
-import { rm } from "fs/promises";
 
-const TEST_DB = "/tmp/bud-state-test/memory.db";
-
-beforeEach(async () => {
-  await rm("/tmp/bud-state-test", { recursive: true, force: true });
-  initDatabase(TEST_DB);
-});
-
-afterEach(() => {
-  closeDatabase();
+// Reset state before each test by recreating initial state
+beforeEach(() => {
+  setState({
+    status: "idle",
+    current_task: null,
+    started_at: null,
+    session_budget: 0,
+    session_spent: 0,
+    preempt_requested: false,
+    preempt_reason: null,
+  });
 });
 
 describe("state", () => {
@@ -32,8 +31,8 @@ describe("state", () => {
       status: "working",
       current_task: "Test task",
       started_at: new Date().toISOString(),
-      session_budget: 0.50,
-      session_spent: 0
+      session_budget: 0.5,
+      session_spent: 0,
     });
     const state = getState();
     expect(state.status).toBe("working");
@@ -62,12 +61,12 @@ describe("state", () => {
   });
 
   test("shouldYield returns true when budget exceeded", () => {
-    setState({ status: "working", session_budget: 0.50, session_spent: 0.60 });
+    setState({ status: "working", session_budget: 0.5, session_spent: 0.6 });
     expect(shouldYield()).toBe(true);
   });
 
   test("shouldYield returns false when budget has room", () => {
-    setState({ status: "working", session_budget: 1.0, session_spent: 0.30 });
+    setState({ status: "working", session_budget: 1.0, session_spent: 0.3 });
     expect(shouldYield()).toBe(false);
   });
 });

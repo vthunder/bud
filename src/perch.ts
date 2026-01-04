@@ -1,7 +1,15 @@
 #!/usr/bin/env bun
-import { config, validateConfig, getDbPath, getJournalPath } from "./config";
-import { initDatabase, getBlocksByLayer } from "./memory/blocks";
-import { initJournal, appendJournal, getRecentJournal, getJournalEntriesSince } from "./memory/journal";
+import { config, validateConfig } from "./config";
+import {
+  loadPromptContext,
+  buildFullPrompt,
+  buildContinuationPrompt,
+} from "./prompt";
+import {
+  appendJournal,
+  getFocus,
+  getJournalEntriesSince,
+} from "./memory/working";
 import { gatherPerchContext } from "./perch/context";
 import { selectWork, type WorkItem } from "./perch/work";
 import { startTyping, stopTyping } from "./discord/sender";
@@ -14,24 +22,7 @@ import {
   formatBudgetStatus,
 } from "./budget";
 import { executeWithYield } from "./execution";
-import { buildFullPrompt, buildContinuationPrompt, type PromptContext, type ContinuationContext } from "./prompt";
-import { listSkillNames } from "./skills";
 import { getSessionManager } from "./session-manager";
-
-async function loadPromptContext(): Promise<PromptContext> {
-  const identity = getBlocksByLayer(1);
-  const semantic = getBlocksByLayer(2);
-  const working = getBlocksByLayer(3);
-  const journal = await getRecentJournal(40);
-  const skills = await listSkillNames(config.skills.path);
-  return { identity, semantic, working, journal, skills };
-}
-
-async function loadContinuationContext(sinceTs: string): Promise<ContinuationContext> {
-  const working = getBlocksByLayer(3);
-  const recentJournal = await getJournalEntriesSince(sinceTs);
-  return { working, recentJournal };
-}
 
 async function executeWork(work: WorkItem): Promise<void> {
   console.log(
@@ -49,7 +40,7 @@ async function executeWork(work: WorkItem): Promise<void> {
     session_spent: 0,
   });
 
-  await appendJournal({
+  appendJournal({
     type: "work_started",
     work_type: work.type,
     description: work.description,
@@ -77,7 +68,7 @@ ${formatBudgetStatus()}
 ## Instructions
 1. Complete the task described above
 2. If you're approaching budget limit, wrap up gracefully
-3. Update relevant memory blocks with your progress
+3. Update relevant memory with your progress
 4. Report what you accomplished
 
 Begin working on the task now.`;
@@ -90,14 +81,14 @@ Begin working on the task now.`;
   // Build prompt based on session state
   let prompt: string;
   if (resumeSessionId && sessionState?.lastUsedAt) {
-    // Continuation: lighter prompt with just working memory + recent activity
+    // Continuation: lighter prompt with just focus + recent activity
     console.log(`[perch] Continuing session ${resumeSessionId.slice(0, 8)}...`);
-    const continuationContext = await loadContinuationContext(sessionState.lastUsedAt);
-    prompt = buildContinuationPrompt(continuationContext, trigger);
+    const recentJournal = getJournalEntriesSince(sessionState.lastUsedAt);
+    prompt = buildContinuationPrompt({ focus: getFocus(), recentJournal }, trigger);
   } else {
-    // Fresh: full prompt with identity, semantic, working, journal
+    // Fresh: full prompt with core, working, skills
     console.log("[perch] Starting fresh session");
-    const promptContext = await loadPromptContext();
+    const promptContext = loadPromptContext();
     prompt = buildFullPrompt(promptContext, trigger);
   }
 
@@ -109,7 +100,7 @@ Begin working on the task now.`;
     });
 
     // Log completion
-    await appendJournal({
+    appendJournal({
       type: "work_completed",
       work_type: work.type,
       description: work.description,
@@ -125,7 +116,7 @@ Begin working on the task now.`;
     );
   } catch (error) {
     console.error("[perch] Work execution error:", error);
-    await appendJournal({
+    appendJournal({
       type: "work_error",
       work_type: work.type,
       error: error instanceof Error ? error.message : String(error),
@@ -150,8 +141,6 @@ async function main() {
   }
 
   // Initialize
-  initDatabase(getDbPath());
-  initJournal(getJournalPath());
   checkDailyReset("Europe/Berlin");
 
   // Check if already working (another process or stuck state)

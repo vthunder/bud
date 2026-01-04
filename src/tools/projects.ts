@@ -10,14 +10,14 @@ import {
   createProject as createProjectFiles,
   projectExists,
 } from "../projects/files";
-import { getProjectsPath } from "../config";
+import { getProjectsDir } from "../memory/long_term";
 import type { ProjectGoal } from "../projects/types";
 
 /**
  * List all projects in the projects directory
  */
 export async function listProjects(projectsPath?: string): Promise<string[]> {
-  const path = projectsPath ?? getProjectsPath();
+  const path = projectsPath ?? getProjectsDir();
   try {
     const entries = await readdir(path, { withFileTypes: true });
     return entries
@@ -54,7 +54,7 @@ export async function updateProjectNotes(
  * Create a new project
  */
 export function createProject(name: string): void {
-  const projectPath = join(getProjectsPath(), name);
+  const projectPath = join(getProjectsDir(), name);
   if (projectExists(projectPath)) {
     throw new Error(`Project '${name}' already exists`);
   }
@@ -65,6 +65,6 @@ export function createProject(name: string): void {
  * Check if a project exists
  */
 export function projectExistsUtil(name: string): boolean {
-  const projectPath = join(getProjectsPath(), name);
+  const projectPath = join(getProjectsDir(), name);
   return projectExists(projectPath);
 }

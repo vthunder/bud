@@ -1,15 +1,15 @@
 import { readLogs, type LogEntry } from "../memory/logs";
-import { getBlock } from "../memory/blocks";
-import { parseTasksJson, getDueTasks, type ScheduledTask } from "./tasks";
+import { loadCoreMemory, type CoreMemory } from "../memory/core";
+import { getFocus } from "../memory/working";
+import { getScheduledTasks, getGithubRepos } from "../memory/long_term";
+import { getDueTasks, type ScheduledTask } from "./tasks";
 import { checkGitHubActivity } from "./github";
-import { parseReposJson } from "../integrations/github";
 import { getCalendarContext } from "./calendar";
 
 export interface BudContext {
   persona: string;
   currentFocus: string;
   ownerContext: string;
-  timezone: string;
 }
 
 export interface PerchContext {
@@ -41,11 +41,11 @@ const DAYS = [
 ];
 
 function loadContext(): BudContext {
+  const core = loadCoreMemory();
   return {
-    persona: getBlock("persona") ?? "",
-    currentFocus: getBlock("current_focus") ?? "",
-    ownerContext: getBlock("owner_context") ?? "",
-    timezone: getBlock("timezone") ?? "",
+    persona: core.persona,
+    currentFocus: getFocus(),
+    ownerContext: core.owner_context,
   };
 }
 
@@ -56,20 +56,19 @@ export async function gatherPerchContext(
   const lookbackHours = options.lookbackHours ?? 24;
   const cutoff = new Date(now.getTime() - lookbackHours * 60 * 60 * 1000);
 
-  // Load memory from SQLite
+  // Load memory from files
   const memory = loadContext();
 
   // Load and check scheduled tasks
-  const tasksJson = getBlock("scheduled_tasks") ?? "[]";
-  const allTasks = parseTasksJson(tasksJson);
+  const allTasks = getScheduledTasks();
   const dueTasks = getDueTasks(allTasks, now);
 
-  // Load GitHub repos from memory
-  const reposJson = getBlock("github_repos") ?? "[]";
-  const githubRepos = parseReposJson(reposJson);
+  // Load GitHub repos from long-term memory
+  const githubRepos = getGithubRepos().map((r) => `${r.owner}/${r.repo}`);
 
   // Check GitHub activity
-  const { summary: githubSummary, hasNew: hasNewGitHub } = await checkGitHubActivity(githubRepos);
+  const { summary: githubSummary, hasNew: hasNewGitHub } =
+    await checkGitHubActivity(githubRepos);
 
   // Get calendar context
   const { summary: calendarSummary } = await getCalendarContext();
@@ -83,9 +82,11 @@ export async function gatherPerchContext(
   // Calculate hours since last interaction
   let hoursSinceLastInteraction: number | null = null;
   if (recentInteractions.length > 0) {
-    const lastTimestamp = recentInteractions[recentInteractions.length - 1].timestamp;
+    const lastTimestamp =
+      recentInteractions[recentInteractions.length - 1].timestamp;
     const lastTime = new Date(lastTimestamp);
-    hoursSinceLastInteraction = (now.getTime() - lastTime.getTime()) / (1000 * 60 * 60);
+    hoursSinceLastInteraction =
+      (now.getTime() - lastTime.getTime()) / (1000 * 60 * 60);
   }
 
   return {

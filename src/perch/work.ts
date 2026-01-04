@@ -1,5 +1,4 @@
-import { getBlock } from "../memory/blocks";
-import { searchJournal } from "../memory/journal";
+import { searchJournal } from "../memory/working";
 import { getRemainingBudget } from "../budget";
 import { getFocus, getFocusedProjects } from "../projects/focus";
 
@@ -11,7 +10,9 @@ export interface WorkItem {
   estimatedBudget: number;
 }
 
-export async function selectWork(scheduledTasks: Array<{ id: string; description: string; context?: string }>): Promise<WorkItem | null> {
+export async function selectWork(
+  scheduledTasks: Array<{ id: string; description: string; context?: string }>
+): Promise<WorkItem | null> {
   const remaining = getRemainingBudget();
 
   if (remaining <= 0) {
@@ -26,7 +27,7 @@ export async function selectWork(scheduledTasks: Array<{ id: string; description
       id: task.id,
       description: task.description,
       context: task.context || "",
-      estimatedBudget: Math.min(0.50, remaining), // Default estimate
+      estimatedBudget: Math.min(0.5, remaining), // Default estimate
     };
   }
 
@@ -42,23 +43,11 @@ export async function selectWork(scheduledTasks: Array<{ id: string; description
       id: `project-${topProject.name}`,
       description: `Work on ${topProject.name}`,
       context: buildFocusContext(focusedProjects),
-      estimatedBudget: Math.min(1.00, remaining),
+      estimatedBudget: Math.min(1.0, remaining),
     };
   }
 
-  // Priority 3: Active goals (legacy - backwards compatibility)
-  const goals = getBlock("goals");
-  if (goals && goals !== "(No active goals.)") {
-    return {
-      type: "goal",
-      id: "goal-work",
-      description: "Work on active goals",
-      context: goals,
-      estimatedBudget: Math.min(1.00, remaining),
-    };
-  }
-
-  // Priority 4: Maintenance (sync state, etc.)
+  // Priority 3: Maintenance (sync state, etc.)
   const lastSync = await getLastSyncTime();
   const hoursSinceSync = lastSync
     ? (Date.now() - new Date(lastSync).getTime()) / (1000 * 60 * 60)
@@ -70,7 +59,7 @@ export async function selectWork(scheduledTasks: Array<{ id: string; description
       id: "sync-state",
       description: "Sync state to GitHub",
       context: "Daily backup",
-      estimatedBudget: Math.min(0.10, remaining),
+      estimatedBudget: Math.min(0.1, remaining),
     };
   }
 
@@ -78,19 +67,30 @@ export async function selectWork(scheduledTasks: Array<{ id: string; description
 }
 
 async function getLastSyncTime(): Promise<string | null> {
-  const entries = await searchJournal(e =>
-    e.type === "sync" ||
-    (e.type === "tool_use" && e.tool === "sync-state") ||
-    (e.type === "work_completed" && e.work_type === "maintenance" && e.description === "Sync state to GitHub")
+  const entries = searchJournal(
+    (e) =>
+      e.type === "sync" ||
+      (e.type === "tool_use" && e.tool === "sync-state") ||
+      (e.type === "work_completed" &&
+        e.work_type === "maintenance" &&
+        e.description === "Sync state to GitHub")
   );
 
   // Return the most recent match
   return entries.length > 0 ? entries[entries.length - 1].ts : null;
 }
 
-function buildFocusContext(projects: Array<{ name: string; path: string; priority: number; notes?: string }>): string {
+function buildFocusContext(
+  projects: Array<{
+    name: string;
+    path: string;
+    priority: number;
+    notes?: string;
+  }>
+): string {
   let context = "## Focused Projects\n\n";
-  context += "Use the `select-work` skill to evaluate these projects and select work.\n\n";
+  context +=
+    "Use the `select-work` skill to evaluate these projects and select work.\n\n";
 
   for (const p of projects) {
     context += `### ${p.name} (priority ${p.priority})\n`;

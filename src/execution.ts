@@ -1,6 +1,6 @@
-import { getState, setState, shouldYield, isWrappingUp } from "./state";
+import { getState, setState, shouldYield } from "./state";
 import { trackCost, trackTokens, formatBudgetStatus } from "./budget";
-import { appendJournal } from "./memory/journal";
+import { appendJournal } from "./memory/working";
 import { ClaudeSession, getDefaultSession } from "./claude-session";
 import { getSessionManager } from "./session-manager";
 import { writeFile, mkdir } from "fs/promises";
@@ -46,9 +46,9 @@ async function ensureMcpConfig(): Promise<void> {
           DISCORD_TOKEN: process.env.DISCORD_TOKEN || "",
           DISCORD_CHANNEL_ID: process.env.DISCORD_CHANNEL_ID || "",
           GITHUB_TOKEN: process.env.GITHUB_TOKEN || "",
-          GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "",
+          GOOGLE_SERVICE_ACCOUNT_JSON:
+            process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "",
           GOOGLE_CALENDAR_IDS: process.env.GOOGLE_CALENDAR_IDS || "",
-          SKILLS_PATH: process.env.SKILLS_PATH || "/app/state/skills",
         },
       },
       // External MCP servers
@@ -112,7 +112,7 @@ export async function executeWithYield(
     // Check for preemption before starting
     if (shouldYield()) {
       const state = getState();
-      await appendJournal({
+      appendJournal({
         type: "yield",
         reason: state.preempt_reason || "Preempted before start",
         budget_status: formatBudgetStatus(),
@@ -143,7 +143,7 @@ export async function executeWithYield(
 
     // Handle errors
     if (result.error) {
-      await appendJournal({
+      appendJournal({
         type: "execution_error",
         error: result.error,
         response_preview: result.response.slice(0, 200),
@@ -211,11 +211,10 @@ export async function executeWithYield(
       sm.reset();
     }
 
-    await appendJournal({
+    appendJournal({
       type: "execution_error",
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
 }
-

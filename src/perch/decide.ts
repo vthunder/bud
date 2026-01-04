@@ -84,7 +84,7 @@ ${context.memory.ownerContext || "No owner context."}
 - Time: ${context.currentTime}
 - Day: ${context.dayOfWeek}
 - Hour (UTC): ${context.hourOfDay}
-- Timezone: ${context.memory.timezone || "UTC"}
+- Timezone: UTC
 - Last interaction: ${timeSinceChat}
 
 ## Tick Type

@@ -1,15 +1,11 @@
-import { getBlock, setBlock } from "../memory/blocks";
+import { getScheduledTasks, saveScheduledTasks } from "../memory/long_term";
 import {
   type ScheduledTask,
-  parseTasksJson,
-  serializeTasksJson,
   createTask,
   removeTask,
   markTaskRun,
   isOneOffTask,
 } from "../perch/tasks";
-
-const TASKS_BLOCK = "scheduled_tasks";
 
 export interface ScheduleTaskResult {
   success: boolean;
@@ -40,12 +36,10 @@ export function scheduleTask(
   context?: string
 ): ScheduleTaskResult {
   try {
-    const json = getBlock(TASKS_BLOCK) ?? "[]";
-    const tasks = parseTasksJson(json);
-
+    const tasks = getScheduledTasks();
     const task = createTask(description, timing, requiresWakeup, context);
     tasks.push(task);
-    setBlock(TASKS_BLOCK, serializeTasksJson(tasks));
+    saveScheduledTasks(tasks);
 
     return { success: true, task };
   } catch (error) {
@@ -58,8 +52,7 @@ export function scheduleTask(
 
 export function cancelTask(taskId: string): CancelTaskResult {
   try {
-    const json = getBlock(TASKS_BLOCK) ?? "[]";
-    const tasks = parseTasksJson(json);
+    const tasks = getScheduledTasks();
 
     const taskExists = tasks.some((t) => t.id === taskId);
     if (!taskExists) {
@@ -67,7 +60,7 @@ export function cancelTask(taskId: string): CancelTaskResult {
     }
 
     const updated = removeTask(tasks, taskId);
-    setBlock(TASKS_BLOCK, serializeTasksJson(updated));
+    saveScheduledTasks(updated);
 
     return { success: true };
   } catch (error) {
@@ -80,8 +73,7 @@ export function cancelTask(taskId: string): CancelTaskResult {
 
 export function listScheduledTasks(): ListTasksResult {
   try {
-    const json = getBlock(TASKS_BLOCK) ?? "[]";
-    const tasks = parseTasksJson(json);
+    const tasks = getScheduledTasks();
     return { tasks };
   } catch {
     return { tasks: [] };
@@ -90,8 +82,7 @@ export function listScheduledTasks(): ListTasksResult {
 
 export function markTaskComplete(taskId: string): CancelTaskResult {
   try {
-    const json = getBlock(TASKS_BLOCK) ?? "[]";
-    const tasks = parseTasksJson(json);
+    const tasks = getScheduledTasks();
 
     const taskIndex = tasks.findIndex((t) => t.id === taskId);
     if (taskIndex === -1) {
@@ -101,7 +92,9 @@ export function markTaskComplete(taskId: string): CancelTaskResult {
 
     const task = tasks[taskIndex];
     const isOneOff = isOneOffTask(task);
-    console.log(`[tasks] markTaskComplete: ${task.description} (timing: ${task.timing}, one-off: ${isOneOff})`);
+    console.log(
+      `[tasks] markTaskComplete: ${task.description} (timing: ${task.timing}, one-off: ${isOneOff})`
+    );
 
     if (isOneOff) {
       // One-off task: remove it
@@ -113,7 +106,7 @@ export function markTaskComplete(taskId: string): CancelTaskResult {
       tasks[taskIndex] = markTaskRun(task);
     }
 
-    setBlock(TASKS_BLOCK, serializeTasksJson(tasks));
+    saveScheduledTasks(tasks);
     return { success: true };
   } catch (error) {
     console.error(`[tasks] markTaskComplete error:`, error);

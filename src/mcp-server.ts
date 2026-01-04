@@ -8,15 +8,25 @@
  * Run with: bun run src/mcp-server.ts
  */
 
-import { config, getDbPath, getJournalPath } from "./config";
+import { config } from "./config";
 import {
-  initDatabase,
-  getBlock,
-  setBlock,
-  getAllCurrentBlocks,
-  getBlockHistory,
-} from "./memory/blocks";
-import { initJournal, appendJournal } from "./memory/journal";
+  getFocus,
+  setFocus,
+  getInbox,
+  setInbox,
+  getCommitments,
+  setCommitments,
+  appendJournal,
+} from "./memory/working";
+import { loadCoreMemory } from "./memory/core";
+import {
+  getGithubRepos,
+  listSkillNames,
+  getSkillContent,
+  listProjectNames,
+  getProjectContent,
+  saveProjectContent,
+} from "./memory/long_term";
 import {
   listEvents,
   getEvent,
@@ -31,81 +41,94 @@ import {
   getNotifications,
   formatPRForDisplay,
   formatIssueForDisplay,
-  parseReposJson,
 } from "./integrations/github";
-import { readFile, readdir } from "fs/promises";
-import { join } from "path";
 import * as readline from "readline";
 import { sendMessage } from "./discord/sender";
 
-// Initialize database and journal
-initDatabase(getDbPath());
-initJournal(getJournalPath());
-
-// Load GitHub repos from working memory
-function getGitHubRepos(): string[] {
-  try {
-    const reposJson = getBlock("github_repos") || "[]";
-    return parseReposJson(reposJson);
-  } catch {
-    return [];
-  }
-}
-
 // Tool definitions
 const tools = [
-  // Memory tools
+  // Working memory tools
   {
-    name: "get_block",
-    description:
-      "Read a memory block. Layers: 2=identity (persona, values), 3=semantic (owner_context, patterns), 4=working (focus, goals, schedule)",
-    inputSchema: {
-      type: "object",
-      properties: {
-        name: {
-          type: "string",
-          description: "Block name (e.g., 'persona', 'focus', 'owner_context')",
-        },
-      },
-      required: ["name"],
-    },
-  },
-  {
-    name: "set_block",
-    description:
-      "Update a memory block. Creates new version (old versions preserved). Layer 4 for working state, 3 for learned patterns.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        name: { type: "string", description: "Block name" },
-        value: { type: "string", description: "New content" },
-        layer: {
-          type: "number",
-          description: "Layer: 2=identity, 3=semantic, 4=working (default)",
-        },
-      },
-      required: ["name", "value"],
-    },
-  },
-  {
-    name: "list_blocks",
-    description: "List all memory blocks with their current values",
+    name: "get_focus",
+    description: "Read the current focus (2_working/focus.md)",
     inputSchema: { type: "object", properties: {} },
   },
   {
-    name: "block_history",
-    description:
-      "Get version history of a memory block for recovery or analysis",
+    name: "set_focus",
+    description: "Update the current focus",
     inputSchema: {
       type: "object",
       properties: {
-        name: { type: "string", description: "Block name" },
-        limit: {
-          type: "number",
-          description: "Max versions to return (default 10)",
-        },
+        content: { type: "string", description: "New focus content" },
+      },
+      required: ["content"],
+    },
+  },
+  {
+    name: "get_inbox",
+    description: "Read the inbox (2_working/inbox.md)",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "set_inbox",
+    description: "Update the inbox",
+    inputSchema: {
+      type: "object",
+      properties: {
+        content: { type: "string", description: "New inbox content" },
+      },
+      required: ["content"],
+    },
+  },
+  {
+    name: "get_commitments",
+    description: "Read commitments (2_working/commitments.md)",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "set_commitments",
+    description: "Update commitments",
+    inputSchema: {
+      type: "object",
+      properties: {
+        content: { type: "string", description: "New commitments content" },
+      },
+      required: ["content"],
+    },
+  },
+  {
+    name: "get_core_memory",
+    description:
+      "Read core memory (1_core/). Returns persona, values, owner context, system guide, communication style.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  // Project tools
+  {
+    name: "list_projects",
+    description: "List all project names",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_project",
+    description: "Read a project file",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Project name" },
       },
       required: ["name"],
+    },
+  },
+  {
+    name: "set_project",
+    description: "Create or update a project file",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Project name" },
+        content: { type: "string", description: "Project content" },
+      },
+      required: ["name", "content"],
     },
   },
   // Calendar tools
@@ -239,7 +262,7 @@ const tools = [
   },
   {
     name: "list_skills",
-    description: "List all available skills with their descriptions",
+    description: "List all available skills",
     inputSchema: { type: "object", properties: {} },
   },
   // Discord tools
@@ -266,49 +289,92 @@ async function handleTool(
   args: Record<string, unknown>
 ): Promise<string> {
   switch (name) {
-    // Memory tools
-    case "get_block": {
-      const value = getBlock(args.name as string);
-      await appendJournal({ type: "read", target: `block:${args.name}` });
-      return value ?? `(block '${args.name}' not found)`;
+    // Working memory tools
+    case "get_focus": {
+      const content = getFocus();
+      appendJournal({ type: "read", target: "focus" });
+      return content || "(no focus set)";
     }
 
-    case "set_block": {
-      const layer = (args.layer as number) ?? 4;
-      if (layer === 2) {
-        return "Cannot modify identity blocks (layer 2). These require owner approval.";
-      }
-      setBlock(args.name as string, args.value as string, layer);
-      await appendJournal({
-        type: "block_update",
-        block: args.name,
-        layer,
-        preview: (args.value as string).slice(0, 100),
+    case "set_focus": {
+      setFocus(args.content as string);
+      appendJournal({
+        type: "update",
+        target: "focus",
+        preview: (args.content as string).slice(0, 100),
       });
-      return `Updated block '${args.name}'`;
+      return "Updated focus";
     }
 
-    case "list_blocks": {
-      const blocks = getAllCurrentBlocks();
-      const list = Object.entries(blocks)
-        .map(
-          ([name, value]) =>
-            `${name}: ${value.slice(0, 100)}${value.length > 100 ? "..." : ""}`
-        )
-        .join("\n");
-      return list || "(no blocks)";
+    case "get_inbox": {
+      const content = getInbox();
+      appendJournal({ type: "read", target: "inbox" });
+      return content || "(inbox empty)";
     }
 
-    case "block_history": {
-      const history = getBlockHistory(args.name as string);
-      const limited = history.slice(-((args.limit as number) ?? 10));
-      const formatted = limited
-        .map(
-          (h) =>
-            `[${h.created_at}] ${h.value.slice(0, 80)}${h.value.length > 80 ? "..." : ""}`
-        )
-        .join("\n");
-      return formatted || `(no history for '${args.name}')`;
+    case "set_inbox": {
+      setInbox(args.content as string);
+      appendJournal({
+        type: "update",
+        target: "inbox",
+        preview: (args.content as string).slice(0, 100),
+      });
+      return "Updated inbox";
+    }
+
+    case "get_commitments": {
+      const content = getCommitments();
+      appendJournal({ type: "read", target: "commitments" });
+      return content || "(no commitments)";
+    }
+
+    case "set_commitments": {
+      setCommitments(args.content as string);
+      appendJournal({
+        type: "update",
+        target: "commitments",
+        preview: (args.content as string).slice(0, 100),
+      });
+      return "Updated commitments";
+    }
+
+    case "get_core_memory": {
+      const core = loadCoreMemory();
+      const sections: string[] = [];
+      if (core.persona) sections.push(`## Persona\n${core.persona}`);
+      if (core.values) sections.push(`## Values\n${core.values}`);
+      if (core.owner_context)
+        sections.push(`## Owner Context\n${core.owner_context}`);
+      if (core.system_guide)
+        sections.push(`## System Guide\n${core.system_guide}`);
+      if (core.communication)
+        sections.push(`## Communication\n${core.communication}`);
+      return sections.join("\n\n") || "(core memory empty)";
+    }
+
+    // Project tools
+    case "list_projects": {
+      const projects = listProjectNames();
+      return projects.length > 0 ? projects.join("\n") : "(no projects)";
+    }
+
+    case "get_project": {
+      const content = getProjectContent(args.name as string);
+      if (!content) {
+        return `Project '${args.name}' not found`;
+      }
+      appendJournal({ type: "read", target: `project:${args.name}` });
+      return content;
+    }
+
+    case "set_project": {
+      saveProjectContent(args.name as string, args.content as string);
+      appendJournal({
+        type: "update",
+        target: `project:${args.name}`,
+        preview: (args.content as string).slice(0, 100),
+      });
+      return `Updated project '${args.name}'`;
     }
 
     // Calendar tools
@@ -396,7 +462,7 @@ async function handleTool(
       if (!token) {
         return "GitHub not configured (no GITHUB_TOKEN)";
       }
-      const repos = getGitHubRepos();
+      const repos = getGithubRepos().map((r) => `${r.owner}/${r.repo}`);
       const reposToCheck = args.repo ? [args.repo as string] : repos;
       if (reposToCheck.length === 0) {
         return "No repos configured";
@@ -417,7 +483,7 @@ async function handleTool(
       if (!token) {
         return "GitHub not configured (no GITHUB_TOKEN)";
       }
-      const repos = getGitHubRepos();
+      const repos = getGithubRepos().map((r) => `${r.owner}/${r.repo}`);
       const reposToCheck = args.repo ? [args.repo as string] : repos;
       if (reposToCheck.length === 0) {
         return "No repos configured";
@@ -478,32 +544,16 @@ async function handleTool(
 
     // Skills tools
     case "invoke_skill": {
-      try {
-        const skillPath = join(config.skills.path, `${args.name}.md`);
-        return await readFile(skillPath, "utf-8");
-      } catch {
-        return `Skill '${args.name}' not found. Available skills can be seen in the Available Skills section of your prompt.`;
+      const content = getSkillContent(args.name as string);
+      if (!content) {
+        return `Skill '${args.name}' not found. Use list_skills to see available skills.`;
       }
+      return content;
     }
 
     case "list_skills": {
-      try {
-        const files = await readdir(config.skills.path);
-        const mdFiles = files.filter((f) => f.endsWith(".md"));
-        const skills: string[] = [];
-        for (const file of mdFiles) {
-          const name = file.replace(".md", "");
-          const content = await readFile(
-            join(config.skills.path, file),
-            "utf-8"
-          );
-          const firstLine = content.split("\n")[0].replace(/^#\s*/, "");
-          skills.push(`- ${name}: ${firstLine}`);
-        }
-        return skills.length > 0 ? skills.join("\n") : "(no skills available)";
-      } catch {
-        return "(error reading skills)";
-      }
+      const skills = listSkillNames();
+      return skills.length > 0 ? skills.join("\n") : "(no skills available)";
     }
 
     // Discord tools
@@ -531,7 +581,7 @@ async function handleTool(
       });
 
       if (result.success) {
-        await appendJournal({
+        appendJournal({
           type: "message_sent",
           content: truncated.slice(0, 100),
           message_id: result.messageId,

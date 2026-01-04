@@ -1,4 +1,4 @@
-import { describe, expect, test, mock, beforeEach } from "bun:test";
+import { describe, expect, test, mock, beforeEach, afterAll } from "bun:test";
 
 // Mock the GitHub module BEFORE importing context
 const mockCheckGitHubActivity = mock(() =>
@@ -17,7 +17,7 @@ mock.module("../../src/perch/calendar", () => ({
   getCalendarContext: mockGetCalendarContext,
 }));
 
-// Mock dependencies
+// Mock logs
 const mockReadLogs = mock(() => Promise.resolve([]));
 
 mock.module("../../src/memory/logs", () => ({
@@ -25,50 +25,72 @@ mock.module("../../src/memory/logs", () => ({
   appendLog: mock(() => Promise.resolve()),
 }));
 
-const mockGetBlock = mock((name: string) => {
-  switch (name) {
-    case "persona": return "Test persona";
-    case "current_focus": return "Test focus";
-    case "owner_context": return "Test owner";
-    case "timezone": return "UTC";
-    case "scheduled_tasks": return "[]";
-    case "github_repos": return "[]";
-    default: return null;
-  }
-});
+// Mock core memory
+const mockLoadCoreMemory = mock(() => ({
+  persona: "Test persona",
+  values: "Test values",
+  owner_context: "Test owner",
+  system_guide: "",
+  communication: "",
+}));
 
-mock.module("../../src/memory/blocks", () => ({
-  getBlock: mockGetBlock,
-  setBlock: mock(() => {}),
-  initDatabase: mock(() => {}),
-  closeDatabase: mock(() => {}),
-  getAllCurrentBlocks: mock(() => ({})),
-  getBlockHistory: mock(() => []),
-  getBlocksByLayer: mock(() => ({})),
-  getDatabase: mock(() => ({})),
+mock.module("../../src/memory/core", () => ({
+  loadCoreMemory: mockLoadCoreMemory,
+}));
+
+// Mock working memory
+const mockGetFocus = mock(() => "Test focus");
+
+mock.module("../../src/memory/working", () => ({
+  getFocus: mockGetFocus,
+  loadWorkingMemory: mock(() => ({
+    focus: "Test focus",
+    inbox: "",
+    commitments: "",
+    recentJournal: [],
+  })),
+}));
+
+// Mock long_term memory
+const mockGetScheduledTasks = mock(() => []);
+const mockGetGithubRepos = mock(() => []);
+
+mock.module("../../src/memory/long_term", () => ({
+  getScheduledTasks: mockGetScheduledTasks,
+  getGithubRepos: mockGetGithubRepos,
+  saveScheduledTasks: mock(() => {}),
 }));
 
 // Now import the module being tested
 const { gatherPerchContext } = await import("../../src/perch/context");
 
+afterAll(() => {
+  // Clear mocks so other tests can use real modules
+  mock.restore();
+});
+
 describe("gatherPerchContext", () => {
   beforeEach(() => {
     mockReadLogs.mockClear();
-    mockGetBlock.mockClear();
-    mockGetBlock.mockImplementation((name: string) => {
-      switch (name) {
-        case "persona": return "Test persona";
-        case "current_focus": return "Test focus";
-        case "owner_context": return "Test owner";
-        case "timezone": return "UTC";
-        case "scheduled_tasks": return "[]";
-        case "github_repos": return "[]";
-        default: return null;
-      }
-    });
+    mockLoadCoreMemory.mockClear();
+    mockGetFocus.mockClear();
+    mockGetScheduledTasks.mockClear();
+    mockGetGithubRepos.mockClear();
     mockCheckGitHubActivity.mockClear();
-    mockCheckGitHubActivity.mockResolvedValue({ activity: {}, summary: "", hasNew: false });
     mockGetCalendarContext.mockClear();
+
+    // Reset mock implementations
+    mockLoadCoreMemory.mockReturnValue({
+      persona: "Test persona",
+      values: "Test values",
+      owner_context: "Test owner",
+      system_guide: "",
+      communication: "",
+    });
+    mockGetFocus.mockReturnValue("Test focus");
+    mockGetScheduledTasks.mockReturnValue([]);
+    mockGetGithubRepos.mockReturnValue([]);
+    mockCheckGitHubActivity.mockResolvedValue({ activity: {}, summary: "", hasNew: false });
     mockGetCalendarContext.mockResolvedValue({ summary: "", events: [] });
   });
 

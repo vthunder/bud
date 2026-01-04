@@ -1,9 +1,14 @@
 import type { Client } from "discord.js";
-import { config, getDbPath, getJournalPath } from "./config";
-import { initDatabase, getBlocksByLayer } from "./memory/blocks";
-import { initJournal, appendJournal, getRecentJournal, getJournalEntriesSince } from "./memory/journal";
-import { buildFullPrompt, buildContinuationPrompt, type PromptContext, type ContinuationContext } from "./prompt";
-import { listSkillNames } from "./skills";
+import {
+  loadPromptContext,
+  buildFullPrompt,
+  buildContinuationPrompt,
+} from "./prompt";
+import {
+  appendJournal,
+  getFocus,
+  getJournalEntriesSince,
+} from "./memory/working";
 import { executeWithYield } from "./execution";
 import { setState, clearPreempt } from "./state";
 import { getRemainingBudget, checkDailyReset } from "./budget";
@@ -22,38 +27,12 @@ export interface AgentResult {
   yielded?: boolean;
 }
 
-let initialized = false;
-
-function ensureInitialized(): void {
-  if (!initialized) {
-    initDatabase(getDbPath());
-    initJournal(getJournalPath());
-    initialized = true;
-  }
-}
-
-async function loadPromptContext(): Promise<PromptContext> {
-  const identity = getBlocksByLayer(1);
-  const semantic = getBlocksByLayer(2);
-  const working = getBlocksByLayer(3);
-  const journal = await getRecentJournal(40);
-  const skills = await listSkillNames(config.skills.path);
-  return { identity, semantic, working, journal, skills };
-}
-
-async function loadContinuationContext(sinceTs: string): Promise<ContinuationContext> {
-  const working = getBlocksByLayer(3);
-  const recentJournal = await getJournalEntriesSince(sinceTs);
-  return { working, recentJournal };
-}
-
 export async function invokeAgent(
   userMessage: string,
   context: AgentContext,
   sessionBudget?: number
 ): Promise<AgentResult> {
   try {
-    ensureInitialized();
     checkDailyReset("Europe/Berlin");
     clearPreempt();
     setState({
@@ -63,7 +42,7 @@ export async function invokeAgent(
     });
 
     // Log trigger to journal
-    await appendJournal({
+    appendJournal({
       type: "trigger",
       trigger_type: "message",
       from: context.username,
@@ -84,14 +63,14 @@ export async function invokeAgent(
     };
 
     if (resumeSessionId && sessionState?.lastUsedAt) {
-      // Continuation: lighter prompt with just working memory + recent activity
+      // Continuation: lighter prompt with just focus + recent activity
       console.log(`[agent] Continuing session ${resumeSessionId.slice(0, 8)}...`);
-      const continuationContext = await loadContinuationContext(sessionState.lastUsedAt);
-      prompt = buildContinuationPrompt(continuationContext, trigger);
+      const recentJournal = getJournalEntriesSince(sessionState.lastUsedAt);
+      prompt = buildContinuationPrompt({ focus: getFocus(), recentJournal }, trigger);
     } else {
-      // Fresh: full prompt with identity, semantic, working, journal
+      // Fresh: full prompt with core, working, skills
       console.log("[agent] Starting fresh session");
-      const promptContext = await loadPromptContext();
+      const promptContext = loadPromptContext();
       prompt = buildFullPrompt(promptContext, trigger);
     }
 
@@ -105,7 +84,7 @@ export async function invokeAgent(
     });
 
     // Log execution complete (messages are logged by send_message tool)
-    await appendJournal({
+    appendJournal({
       type: "execution_complete",
       trigger_from: context.username,
       tools_used: result.toolsUsed,
@@ -123,7 +102,7 @@ export async function invokeAgent(
   } catch (error) {
     console.error("[agent] Error:", error);
     // Log error to journal
-    await appendJournal({
+    appendJournal({
       type: "error",
       error: error instanceof Error ? error.message : String(error),
       context: "invokeAgent",
