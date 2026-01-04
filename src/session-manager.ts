@@ -29,7 +29,7 @@ export interface SessionManagerConfig {
 
 const DEFAULT_CONFIG: SessionManagerConfig = {
   maxContextTokens: 200_000, // Opus context window
-  contextThreshold: 0.9, // Reset at 90%
+  contextThreshold: 0.25, // Reset at 50K tokens to keep cache read costs low
 };
 
 export class SessionManager {
