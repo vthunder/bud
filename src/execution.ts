@@ -175,19 +175,29 @@ export async function executeWithYield(
 
     // Track token usage
     if (result.usage) {
+      const totalContextTokens = result.usage.inputTokens +
+        result.usage.cacheReadTokens +
+        result.usage.cacheCreationTokens +
+        result.usage.outputTokens;
       trackTokens(result.usage.inputTokens, result.usage.outputTokens);
       console.log(
-        `[execution] Tokens: ${result.usage.inputTokens} in, ${result.usage.outputTokens} out` +
+        `[execution] Tokens: ${totalContextTokens.toLocaleString()} total context ` +
+          `(${result.usage.inputTokens} new in, ${result.usage.outputTokens} out` +
           (result.usage.cacheReadTokens > 0
-            ? `, ${result.usage.cacheReadTokens} cache read`
-            : "")
+            ? `, ${result.usage.cacheReadTokens.toLocaleString()} cached`
+            : "") +
+          ")"
       );
 
       // Update session manager with token counts
+      // For context tracking, include cache read tokens (they consume context space)
       if (result.sessionId) {
+        const contextInputTokens = result.usage.inputTokens +
+          result.usage.cacheReadTokens +
+          result.usage.cacheCreationTokens;
         sm.updateAfterMessage({
           sessionId: result.sessionId,
-          inputTokens: result.usage.inputTokens,
+          inputTokens: contextInputTokens,
           outputTokens: result.usage.outputTokens,
           costUsd: actualCost,
         });
