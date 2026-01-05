@@ -26,6 +26,7 @@ export interface SessionResponse {
   toolsUsed: string[];
   totalCost: number;
   sessionId: string; // Claude CLI session UUID for resumption
+  turns?: number; // Number of tool-use turns in this request
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -280,6 +281,7 @@ export class ClaudeSession {
           toolsUsed: [],
           totalCost: json.total_cost_usd || 0,
           sessionId: json.session_id || "",
+          turns: json.num_turns || 1,
           usage,
           error: json.subtype || "unknown_error",
         };
@@ -290,6 +292,7 @@ export class ClaudeSession {
         toolsUsed: [], // Tool info not in JSON output, could parse from result text
         totalCost: json.total_cost_usd || 0,
         sessionId: json.session_id || "",
+        turns: json.num_turns || 1,
         usage,
       };
     } catch {

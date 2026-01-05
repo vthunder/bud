@@ -26,10 +26,10 @@ export interface SessionManagerConfig {
 
 const DEFAULT_CONFIG: SessionManagerConfig = {
   maxContextTokens: 200_000, // Opus context window
-  // Claude CLI adds ~150K base context (system prompt, tools, etc.) which is cached.
-  // We want sessions to continue until we've added ~30K of our own conversation,
-  // so threshold is (150K base + 30K conversation) / 200K = 0.90
-  contextThreshold: 0.90, // Reset at ~180K total tokens
+  // We only track NEW input + output tokens (not cache reads which are summed across turns).
+  // Claude CLI base context (~40K) is always cached and doesn't add to our count.
+  // Reset when new conversation tokens reach 50K to leave room for tool use growth.
+  contextThreshold: 0.25, // Reset at ~50K new tokens
 };
 
 export class SessionManager {

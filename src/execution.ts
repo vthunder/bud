@@ -12,6 +12,7 @@ export interface ExecutionResult {
   toolsUsed: string[];
   totalCost: number;
   sessionId: string;
+  turns?: number;
   yielded: boolean;
   yieldReason: string | null;
 }
@@ -175,29 +176,24 @@ export async function executeWithYield(
 
     // Track token usage
     if (result.usage) {
-      const totalContextTokens = result.usage.inputTokens +
-        result.usage.cacheReadTokens +
-        result.usage.cacheCreationTokens +
-        result.usage.outputTokens;
       trackTokens(result.usage.inputTokens, result.usage.outputTokens);
+
+      // Log token breakdown
+      // Note: cache_read is accumulated across all turns, not final context size
       console.log(
-        `[execution] Tokens: ${totalContextTokens.toLocaleString()} total context ` +
-          `(${result.usage.inputTokens} new in, ${result.usage.outputTokens} out` +
+        `[execution] Tokens: ${result.usage.inputTokens} new in, ${result.usage.outputTokens} out` +
           (result.usage.cacheReadTokens > 0
-            ? `, ${result.usage.cacheReadTokens.toLocaleString()} cached`
-            : "") +
-          ")"
+            ? `, ${result.usage.cacheReadTokens.toLocaleString()} cache reads (across ${result.turns || "?"} turns)`
+            : "")
       );
 
       // Update session manager with token counts
-      // For context tracking, include cache read tokens (they consume context space)
+      // Only track NEW input + output for context growth estimation
+      // (cache_read is summed across turns, not current context size)
       if (result.sessionId) {
-        const contextInputTokens = result.usage.inputTokens +
-          result.usage.cacheReadTokens +
-          result.usage.cacheCreationTokens;
         sm.updateAfterMessage({
           sessionId: result.sessionId,
-          inputTokens: contextInputTokens,
+          inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           costUsd: actualCost,
         });
@@ -209,6 +205,7 @@ export async function executeWithYield(
       toolsUsed: result.toolsUsed,
       totalCost: actualCost,
       sessionId: result.sessionId,
+      turns: result.turns,
       yielded: false,
       yieldReason: null,
     };
